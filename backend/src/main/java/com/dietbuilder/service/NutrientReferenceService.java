@@ -26,15 +26,26 @@ public class NutrientReferenceService {
         try {
             InputStream is = new ClassPathResource("data/nutrient-references.json").getInputStream();
             referenceData = objectMapper.readTree(is);
-            log.info("Loaded nutrient reference data with {} nutrients", referenceData.path("nutrients").size());
+            log.info("Loaded nutrient reference data with {} nutrients", nutrientsRoot().size());
         } catch (Exception e) {
             log.error("Failed to load nutrient-references.json", e);
             throw new RuntimeException("Cannot start without nutrient reference data", e);
         }
     }
 
+    /**
+     * Supports either {@code {"nutrients": { "calcium": {...}, ... }}} or a flat map of nutrient keys at root.
+     */
+    private JsonNode nutrientsRoot() {
+        JsonNode wrapped = referenceData.path("nutrients");
+        if (!wrapped.isMissingNode() && !wrapped.isNull() && wrapped.isObject()) {
+            return wrapped;
+        }
+        return referenceData;
+    }
+
     public double getDRI(String nutrient, int age, String sex) {
-        JsonNode nutrientNode = referenceData.path("nutrients").path(nutrient);
+        JsonNode nutrientNode = nutrientsRoot().path(nutrient);
         if (nutrientNode.isMissingNode()) return 0;
         for (JsonNode group : nutrientNode.path("groups")) {
             if (matchesDemographic(group, age, sex)) return group.path("rda").asDouble(0);
@@ -43,7 +54,7 @@ public class NutrientReferenceService {
     }
 
     public double getUL(String nutrient, int age, String sex) {
-        JsonNode nutrientNode = referenceData.path("nutrients").path(nutrient);
+        JsonNode nutrientNode = nutrientsRoot().path(nutrient);
         if (nutrientNode.isMissingNode()) return Double.MAX_VALUE;
         for (JsonNode group : nutrientNode.path("groups")) {
             if (matchesDemographic(group, age, sex)) {
@@ -55,12 +66,12 @@ public class NutrientReferenceService {
     }
 
     public String getUnit(String nutrient) {
-        return referenceData.path("nutrients").path(nutrient).path("unit").asText("mg");
+        return nutrientsRoot().path(nutrient).path("unit").asText("mg");
     }
 
     public Set<String> getAllTrackedNutrients() {
         Set<String> nutrients = new LinkedHashSet<>();
-        referenceData.path("nutrients").fieldNames().forEachRemaining(nutrients::add);
+        nutrientsRoot().fieldNames().forEachRemaining(nutrients::add);
         return nutrients;
     }
 

@@ -251,7 +251,12 @@ function RecommendContent() {
       setPastPlans((prev) =>
         prev.map((p) => (p.id === next.id ? next : p))
       );
-      toast.success("Meal removed from plan");
+      const pendingRemoved = next.removedMealSlots?.length ?? 0;
+      toast.success(
+        pendingRemoved > 0
+          ? `Meal removed. ${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending.`
+          : "Meal removed from plan"
+      );
     } catch {
       toast.error("Failed to remove meal");
     }
@@ -493,30 +498,6 @@ function RecommendContent() {
           </div>
         )}
 
-      {!generating &&
-        !regenerating &&
-        currentPlan &&
-        (currentPlan.removedMealSlots?.length ?? 0) > 0 && (
-          <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10 p-4 flex items-center justify-between animate-fade-in">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                  {currentPlan.removedMealSlots?.length} removed meal
-                  {(currentPlan.removedMealSlots?.length ?? 0) !== 1 ? "s" : ""} pending replacement
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  Keep the rest of the plan unchanged and fill only removed slots.
-                </p>
-              </div>
-            </div>
-            <Button onClick={handleReplaceRemovedMeals} size="sm">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Replace Removed Meals
-            </Button>
-          </div>
-        )}
-
       {/* Current plan */}
       {!generating && !regenerating && currentPlan && (
         <div className="space-y-6">
@@ -524,6 +505,8 @@ function RecommendContent() {
             plan={currentPlan}
             onRejectFood={handleRejectFood}
             onRemoveMeal={handleRemoveMeal}
+            onReplaceRemovedMeals={handleReplaceRemovedMeals}
+            replaceRemovedLoading={regenerating}
           />
           <AuditLogViewer log={auditLog} />
         </div>

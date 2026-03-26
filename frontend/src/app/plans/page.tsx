@@ -139,7 +139,12 @@ function PlansContent() {
       );
       setSelectedPlan(next);
       setPlans((prev) => prev.map((p) => (p.id === next.id ? next : p)));
-      toast.success("Meal removed from plan");
+      const pendingRemoved = next.removedMealSlots?.length ?? 0;
+      toast.success(
+        pendingRemoved > 0
+          ? `Meal removed. ${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending.`
+          : "Meal removed from plan"
+      );
     } catch {
       toast.error("Failed to remove meal");
     }
@@ -234,35 +239,12 @@ function PlansContent() {
             </Button>
           </div>
         )}
-        {(selectedPlan.removedMealSlots?.length ?? 0) > 0 && (
-          <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10 p-4 flex items-center justify-between animate-fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <RefreshCw className="h-5 w-5 text-blue-600 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                  {selectedPlan.removedMealSlots?.length} removed meal
-                  {(selectedPlan.removedMealSlots?.length ?? 0) !== 1 ? "s" : ""} pending replacement
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  Replace removed slots while keeping other meals unchanged.
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleReplaceRemovedMeals}
-              loading={regenerating}
-              size="sm"
-              className="shrink-0"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Replace Removed Meals
-            </Button>
-          </div>
-        )}
         <MultiDayPlanView
           plan={selectedPlan}
           onRejectFood={handleRejectFood}
           onRemoveMeal={handleRemoveMeal}
+          onReplaceRemovedMeals={handleReplaceRemovedMeals}
+          replaceRemovedLoading={regenerating}
         />
       </div>
     );

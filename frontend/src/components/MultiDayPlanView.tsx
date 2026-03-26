@@ -23,6 +23,7 @@ import {
   ChevronRight,
   LayoutGrid,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 
 interface MultiDayPlanViewProps {
@@ -38,6 +39,8 @@ interface MultiDayPlanViewProps {
     dayIndex: number | null;
     mealIndex: number;
   }) => Promise<void>;
+  onReplaceRemovedMeals?: () => void;
+  replaceRemovedLoading?: boolean;
 }
 
 function MacroRing({
@@ -285,6 +288,8 @@ export function MultiDayPlanView({
   plan,
   onRejectFood,
   onRemoveMeal,
+  onReplaceRemovedMeals,
+  replaceRemovedLoading,
 }: MultiDayPlanViewProps) {
   const days = plan.days || [];
   const isMultiDay = days.length > 0;
@@ -587,6 +592,32 @@ export function MultiDayPlanView({
                   removeDisabled={removingKey !== null}
                 />
               ))}
+
+              {(plan.removedMealSlots?.length ?? 0) > 0 && onReplaceRemovedMeals && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10 p-4 flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <RefreshCw className="h-5 w-5 text-blue-600 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                        {plan.removedMealSlots?.length} removed meal
+                        {(plan.removedMealSlots?.length ?? 0) !== 1 ? "s" : ""} pending replacement
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Keep the rest of the plan unchanged and fill only removed slots.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onReplaceRemovedMeals}
+                    disabled={Boolean(replaceRemovedLoading)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Replace Removed Meals
+                  </button>
+                </div>
+              )}
 
               {/* Day navigation */}
               <div className="flex items-center justify-between pt-2">

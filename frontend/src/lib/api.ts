@@ -11,7 +11,16 @@ async function request<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "Unknown error");
-    throw new Error(`API Error ${res.status}: ${text}`);
+    let detail = text;
+    try {
+      const j = JSON.parse(text) as { message?: string };
+      if (j?.message && typeof j.message === "string") {
+        detail = j.message;
+      }
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(`API Error ${res.status}: ${detail}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

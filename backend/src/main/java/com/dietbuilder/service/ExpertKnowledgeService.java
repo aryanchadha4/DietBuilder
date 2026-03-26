@@ -19,6 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +37,9 @@ public class ExpertKnowledgeService {
 
     @Value("${rag.retrieval.cache-ttl-minutes:60}")
     private long queryCacheTtlMinutes;
+
+    @Value("${rag.embedding.backfill-concurrency:4}")
+    private int embeddingBackfillConcurrency;
 
     private final Map<String, CachedQueryResult> queryCache = new LinkedHashMap<>();
 
@@ -66,19 +72,45 @@ public class ExpertKnowledgeService {
             return cached.results();
         }
 
+        long tQueryEmbed = System.currentTimeMillis();
         List<Double> queryEmbedding = embeddingService.getEmbedding(query);
+        long queryEmbeddingMs = System.currentTimeMillis() - tQueryEmbed;
         List<ExpertSource> activeSources = expertSourceRepository.findByActiveTrue();
-        List<SourceRankingService.RankedSource> candidates = new ArrayList<>();
-
-        for (ExpertSource source : activeSources) {
-            if (source.getEmbedding() == null || source.getEmbedding().isEmpty()) {
-                String content = buildEmbeddingContent(source);
-                List<Double> embedding = embeddingService.getEmbedding(content);
-                if (!embedding.isEmpty()) {
-                    source.setEmbedding(embedding);
-                    expertSourceRepository.save(source);
+        List<ExpertSource> sourcesNeedingEmbedding = activeSources.stream()
+                .filter(s -> s.getEmbedding() == null || s.getEmbedding().isEmpty())
+                .toList();
+        long backfillMs = 0;
+        if (!sourcesNeedingEmbedding.isEmpty()) {
+            long tBackfill = System.currentTimeMillis();
+            int pool = Math.min(Math.max(1, embeddingBackfillConcurrency), sourcesNeedingEmbedding.size());
+            ExecutorService executor = Executors.newFixedThreadPool(pool);
+            try {
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (ExpertSource source : sourcesNeedingEmbedding) {
+                    futures.add(CompletableFuture.runAsync(() -> {
+                        try {
+                            String content = buildEmbeddingContent(source);
+                            List<Double> embedding = embeddingService.getEmbedding(content);
+                            if (!embedding.isEmpty()) {
+                                source.setEmbedding(embedding);
+                                expertSourceRepository.save(source);
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to backfill embedding for source {}", source.getId(), e);
+                        }
+                    }, executor));
                 }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            } finally {
+                executor.shutdown();
             }
+            backfillMs = System.currentTimeMillis() - tBackfill;
+        }
+        log.info("rag.retrieval query_embedding_ms={} embedding_backfill_ms={} sources_backfilled={}",
+                queryEmbeddingMs, backfillMs, sourcesNeedingEmbedding.size());
+
+        List<SourceRankingService.RankedSource> candidates = new ArrayList<>();
+        for (ExpertSource source : activeSources) {
             double similarity = embeddingService.cosineSimilarity(queryEmbedding, source.getEmbedding());
             candidates.add(new SourceRankingService.RankedSource(source, similarity, similarity));
         }

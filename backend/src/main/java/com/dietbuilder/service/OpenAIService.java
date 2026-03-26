@@ -11,8 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +33,60 @@ public class OpenAIService {
 
     @Value("${openai.api.max-tokens}")
     private int maxTokens;
+
+    @Value("${openai.plan.chunk-days:0}")
+    private int planChunkDays;
+
+    @Value("${openai.plan.chunk-parallelism:4}")
+    private int planChunkParallelism;
+
+    @Value("${openai.plan.evidence-summary-max-chars:400}")
+    private int evidenceSummaryMaxChars;
+
+    /**
+     * When generating a plan in parallel chunks, identifies one segment (day range) of the overall plan.
+     */
+    public record ChunkContext(int chunkIndex, int totalChunks, int dayStart, int dayEnd, int totalPlanDays) {
+        public static ChunkContext single(int totalPlanDays) {
+            return new ChunkContext(1, 1, 1, totalPlanDays, totalPlanDays);
+        }
+
+        public int segmentDays() {
+            return dayEnd - dayStart + 1;
+        }
+    }
+
+    private static List<ChunkContext> buildChunkContexts(int totalPlanDays, int chunkDays) {
+        if (chunkDays <= 0 || totalPlanDays <= 0) {
+            return List.of(ChunkContext.single(totalPlanDays));
+        }
+        List<ChunkContext> out = new ArrayList<>();
+        int day = 1;
+        int chunkIndex = 1;
+        int totalChunks = (int) Math.ceil((double) totalPlanDays / chunkDays);
+        while (day <= totalPlanDays) {
+            int end = Math.min(day + chunkDays - 1, totalPlanDays);
+            out.add(new ChunkContext(chunkIndex, totalChunks, day, end, totalPlanDays));
+            day = end + 1;
+            chunkIndex++;
+        }
+        return out;
+    }
+
+    private static String truncateEvidenceText(String text, int maxChars) {
+        if (text == null || text.isBlank() || text.length() <= maxChars) {
+            return text;
+        }
+        return text.substring(0, maxChars) + "…";
+    }
+
+    /**
+     * Caps completion size: short plans need fewer output tokens; long plans use up to configured max.
+     */
+    private int computeEffectiveMaxTokens(int segmentDays) {
+        int scaled = 2048 + Math.max(1, segmentDays) * 1100;
+        return Math.min(maxTokens, Math.max(4096, scaled));
+    }
 
     private static final String SYSTEM_PROMPT = """
         You are an expert registered dietitian (RD) and board-certified specialist in sports dietetics (CSSD).
@@ -59,6 +117,8 @@ public class OpenAIService {
         6. If one or more cultural cuisines are specified, the plan MUST use foods, ingredients, spices,
            and cooking methods authentic to those culinary traditions. Do not substitute generic Western
            foods where a specified tradition applies. Respect traditional meal structures and flavor profiles.
+           If 2+ cuisines are specified, each day MUST include at least 2 different selected cuisines across
+           Breakfast/Lunch/Dinner/Snack. A day that uses only one cuisine is INVALID.
         7. Present all measurements (food quantities, height, weight) in the unit system specified
            by the user (metric or imperial).
         8. Account for ALL listed exercise activities when estimating energy expenditure. Each
@@ -73,7 +133,8 @@ public class OpenAIService {
         12. Each day MUST include Breakfast, Lunch, Dinner, and at least one Snack.
         13. Provide clear portion sizes and ingredient lists for every meal.
         14. Nutritional targets (calories, macros, micronutrients) must remain consistent across all days.
-        15. Each day should have a descriptive label (e.g., "Day 1 - Mediterranean", "Day 2 - Asian Fusion").
+        15. Each day should have a descriptive label that reflects mixed cuisines when 2+ cuisines are selected
+            (e.g., "Day 1 - Mixed: Mediterranean + South Asian", "Day 2 - Mixed: East Asian + Latin").
 
         RESPONSE FORMAT: Respond ONLY with valid JSON matching this schema:
         {
@@ -81,7 +142,7 @@ public class OpenAIService {
           "days": [
             {
               "dayNumber": 1,
-              "label": "Day 1 - Mediterranean",
+              "label": "Day 1 - Mixed: Mediterranean + South Asian",
               "meals": [
                 {
                   "name": "Breakfast",
@@ -138,8 +199,8 @@ public class OpenAIService {
     public DietPlan generateDietPlan(UserProfile profile, List<String> selectedCuisines,
                                      List<CulturalFoodGroup> culturalFoods,
                                      int numDays, List<String> dislikedFoods) {
-        String userMessage = buildUserMessage(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods);
-        return callOpenAI(userMessage, Map.of());
+        return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
+                null, null, Map.of(), false);
     }
 
     public DietPlan generateDietPlanWithSources(UserProfile profile, List<String> selectedCuisines,
@@ -147,11 +208,56 @@ public class OpenAIService {
                                                 int numDays, List<String> dislikedFoods,
                                                 List<ExpertSource> retrievedSources,
                                                 List<DietPlan.ConflictNote> conflicts) {
-        String userMessage = buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts);
         Map<String, ExpertSource> sourceMap = (retrievedSources == null ? List.<ExpertSource>of() : retrievedSources).stream()
                 .filter(s -> s.getId() != null)
                 .collect(Collectors.toMap(ExpertSource::getId, s -> s, (a, b) -> a, LinkedHashMap::new));
-        return callOpenAI(userMessage, sourceMap);
+        return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
+                retrievedSources, conflicts, sourceMap, true);
+    }
+
+    /**
+     * Splits large plans into parallel API calls when {@code openai.plan.chunk-days} is set.
+     * Cross-chunk meal variety is not coordinated between requests (tradeoff for latency).
+     */
+    private DietPlan generatePlanWithChunks(UserProfile profile, List<String> selectedCuisines,
+                                            List<CulturalFoodGroup> culturalFoods,
+                                            int numDays,
+                                            List<String> dislikedFoods,
+                                            List<ExpertSource> retrievedSources,
+                                            List<DietPlan.ConflictNote> conflicts,
+                                            Map<String, ExpertSource> sourceMap,
+                                            boolean useExpertEvidenceBlock) {
+        if (numDays <= 0) {
+            throw new IllegalArgumentException("numDays must be positive");
+        }
+        List<ChunkContext> contexts = buildChunkContexts(numDays, planChunkDays);
+        if (contexts.size() == 1) {
+            ChunkContext ctx = contexts.get(0);
+            String userMessage = useExpertEvidenceBlock
+                    ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
+                    : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+            return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
+        }
+        log.info("openai.plan chunking: parallel_chunks={} chunk_days_setting={} total_days={} (cross-chunk variety is prompt-only)",
+                contexts.size(), planChunkDays, numDays);
+        int pool = Math.min(Math.max(1, planChunkParallelism), contexts.size());
+        ExecutorService executor = Executors.newFixedThreadPool(pool);
+        try {
+            List<CompletableFuture<DietPlan>> futures = new ArrayList<>();
+            for (ChunkContext ctx : contexts) {
+                futures.add(CompletableFuture.supplyAsync(() -> {
+                    String userMessage = useExpertEvidenceBlock
+                            ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
+                            : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+                    return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
+                }, executor));
+            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            List<DietPlan> parts = futures.stream().map(CompletableFuture::join).toList();
+            return mergeDietPlans(parts, numDays, sourceMap);
+        } finally {
+            executor.shutdown();
+        }
     }
 
     public DietPlan generateAdaptedPlan(UserProfile profile, DietPlan previousPlan,
@@ -191,7 +297,7 @@ public class OpenAIService {
         }
 
         sb.append("\nAdapt the plan to address these issues while maintaining safety and nutritional adequacy.");
-        return callOpenAI(sb.toString(), Map.of());
+        return callOpenAISingle(sb.toString(), Map.of(), numDays);
     }
 
     @lombok.Data
@@ -205,9 +311,10 @@ public class OpenAIService {
                                                           List<DietPlan.RemovedMealSlot> removedSlots,
                                                           List<String> rejectedFoods) {
         String userMessage = buildReplacementMealsMessage(profile, plan, removedSlots, rejectedFoods);
+        int effectiveMax = computeEffectiveMaxTokens(Math.max(1, removedSlots != null ? removedSlots.size() : 1));
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "max_tokens", maxTokens,
+                "max_tokens", effectiveMax,
                 "response_format", Map.of("type", "json_object"),
                 "messages", List.of(
                         Map.of("role", "system", "content", SYSTEM_PROMPT),
@@ -231,9 +338,24 @@ public class OpenAIService {
     public String buildUserMessage(UserProfile profile, List<String> selectedCuisines,
                                     List<CulturalFoodGroup> culturalFoods,
                                     int numDays, List<String> dislikedFoods) {
+        return buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ChunkContext.single(numDays));
+    }
+
+    public String buildUserMessage(UserProfile profile, List<String> selectedCuisines,
+                                    List<CulturalFoodGroup> culturalFoods,
+                                    List<String> dislikedFoods,
+                                    ChunkContext ctx) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Create a personalized MULTI-DAY diet plan with ")
-          .append(numDays).append(" distinct daily variations.\n");
+        if (ctx.totalChunks() > 1) {
+            sb.append("Create ONE SEGMENT of a multi-day diet plan with ")
+                    .append(ctx.segmentDays()).append(" distinct daily variations (days ")
+                    .append(ctx.dayStart()).append("–").append(ctx.dayEnd()).append(" of ")
+                    .append(ctx.totalPlanDays()).append(" total).\n");
+            sb.append("Other segments are generated in parallel; maximize variety within this segment.\n");
+        } else {
+            sb.append("Create a personalized MULTI-DAY diet plan with ")
+                    .append(ctx.segmentDays()).append(" distinct daily variations.\n");
+        }
         sb.append("Each day must have completely different meals. Maximize variety in ingredients, cuisines, and preparation styles.\n\n");
 
         boolean imperial = "IMPERIAL".equalsIgnoreCase(profile.getPreferredUnits());
@@ -349,8 +471,10 @@ public class OpenAIService {
             sb.append("Culinary traditions (use authentic foods, ingredients, spices, and methods across the plan; mix within each day when multiple cuisines are selected): ");
             sb.append(String.join(", ", selectedCuisines)).append("\n");
             sb.append("You MUST draw heavily from these traditions throughout the plan.\n\n");
-            sb.append("When 2+ cuisines are selected, each day must include meals/snacks from multiple selected cuisines ");
-            sb.append("(e.g., breakfast from one cuisine and lunch/dinner/snack from others).\n\n");
+            sb.append("When 2+ cuisines are selected, each day is REQUIRED to include at least 2 different selected cuisines ");
+            sb.append("across breakfast/lunch/dinner/snack. A single-cuisine day is invalid.\n");
+            sb.append("Use mixed day labels like 'Day X - Mixed: CuisineA + CuisineB'.\n");
+            sb.append("Map cuisines at meal level (for example: breakfast CuisineA, lunch CuisineB, dinner CuisineC, snack CuisineA/B).\n\n");
 
             if (culturalFoods != null && !culturalFoods.isEmpty()) {
                 Map<String, List<CulturalFoodGroup>> byCulture = culturalFoods.stream()
@@ -391,12 +515,22 @@ public class OpenAIService {
         }
 
         sb.append("\n## PLAN SCOPE\n");
-        sb.append("Generate exactly ").append(numDays).append(" days of meals.\n");
+        if (ctx.totalChunks() > 1) {
+            sb.append("Generate ONLY ").append(ctx.segmentDays()).append(" days (dayNumber ")
+                    .append(ctx.dayStart()).append(" through ").append(ctx.dayEnd()).append(" inclusive). ");
+            sb.append("The full plan is ").append(ctx.totalPlanDays()).append(" days; this response covers only this segment.\n");
+        } else {
+            sb.append("Generate exactly ").append(ctx.segmentDays()).append(" days of meals.\n");
+        }
         sb.append(String.format("Each day MUST total approximately %.0f kcal. ", calorieTarget));
         sb.append("Set dailyCalories to this value for every day object.\n");
-        sb.append("Provide complete JSON with 'days' array containing ").append(numDays).append(" day objects, ");
+        sb.append("Provide complete JSON with 'days' array containing ").append(ctx.segmentDays()).append(" day objects, ");
         sb.append("each with meals (foods with fdcId and keyNutrients), dailyCalories, and macroBreakdown. ");
-        sb.append("Also include top-level nutrientAudit, evidenceTags, macroBreakdown, and notes.");
+        sb.append("Also include top-level nutrientAudit, evidenceTags, macroBreakdown, and notes.\n");
+        if (selectedCuisines != null && selectedCuisines.size() > 1) {
+            sb.append("Cuisine compliance check before finalizing JSON: for EACH day, verify meals/snacks represent at least 2 selected cuisines; ");
+            sb.append("if not, revise that day before returning output.\n");
+        }
         return sb.toString();
     }
 
@@ -405,7 +539,16 @@ public class OpenAIService {
                                               int numDays, List<String> dislikedFoods,
                                               List<ExpertSource> retrievedSources,
                                               List<DietPlan.ConflictNote> conflicts) {
-        StringBuilder sb = new StringBuilder(buildUserMessage(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods));
+        return buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ChunkContext.single(numDays));
+    }
+
+    public String buildUserMessageWithSources(UserProfile profile, List<String> selectedCuisines,
+                                              List<CulturalFoodGroup> culturalFoods,
+                                              int numDays, List<String> dislikedFoods,
+                                              List<ExpertSource> retrievedSources,
+                                              List<DietPlan.ConflictNote> conflicts,
+                                              ChunkContext ctx) {
+        StringBuilder sb = new StringBuilder(buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx));
         sb.append("\n\n## EXPERT EVIDENCE (USE THESE SOURCES FOR CLAIMS)\n");
         if (retrievedSources == null || retrievedSources.isEmpty()) {
             sb.append("- No high-confidence expert sources retrieved. If you make claims, mark them LOW_CONFIDENCE.\n");
@@ -415,10 +558,11 @@ public class OpenAIService {
                         .append(source.getTitle()).append(" | type=").append(source.getSourceType())
                         .append(" | year=").append(source.getPublicationDate()).append("\n");
                 if (source.getSummary() != null && !source.getSummary().isBlank()) {
-                    sb.append("  Summary: ").append(source.getSummary()).append("\n");
+                    sb.append("  Summary: ").append(truncateEvidenceText(source.getSummary(), evidenceSummaryMaxChars)).append("\n");
                 }
                 if (source.getKeyFindings() != null && !source.getKeyFindings().isEmpty()) {
-                    sb.append("  Findings: ").append(String.join("; ", source.getKeyFindings())).append("\n");
+                    String findings = String.join("; ", source.getKeyFindings());
+                    sb.append("  Findings: ").append(truncateEvidenceText(findings, evidenceSummaryMaxChars)).append("\n");
                 }
             }
         }
@@ -499,10 +643,82 @@ public class OpenAIService {
         }
     }
 
-    private DietPlan callOpenAI(String userMessage, Map<String, ExpertSource> sourceMap) {
+    private DietPlan mergeDietPlans(List<DietPlan> parts, int totalPlanDays, Map<String, ExpertSource> sourceMap) {
+        if (parts.isEmpty()) {
+            throw new IllegalArgumentException("empty plan chunks");
+        }
+        if (parts.size() == 1) {
+            return parts.get(0);
+        }
+        List<DietPlan.DayPlan> allDays = new ArrayList<>();
+        StringBuilder planContent = new StringBuilder();
+        List<DietPlan.EvidenceTag> allEvidence = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        DietPlan.NutrientAudit mergedAudit = null;
+        for (DietPlan p : parts) {
+            if (p.getDays() != null) {
+                allDays.addAll(p.getDays());
+            }
+            if (p.getPlanContent() != null && !p.getPlanContent().isBlank()) {
+                if (planContent.length() > 0) {
+                    planContent.append("\n\n---\n\n");
+                }
+                planContent.append(p.getPlanContent());
+            }
+            if (p.getEvidenceTags() != null) {
+                allEvidence.addAll(p.getEvidenceTags());
+            }
+            if (p.getNotes() != null && !p.getNotes().isBlank()) {
+                notes.add(p.getNotes());
+            }
+            if (mergedAudit == null && p.getNutrientAudit() != null) {
+                mergedAudit = p.getNutrientAudit();
+            }
+        }
+        allDays.sort(Comparator.comparingInt(DietPlan.DayPlan::getDayNumber));
+        DietPlan merged = new DietPlan();
+        merged.setPlanContent(planContent.toString());
+        merged.setDays(allDays);
+        merged.setTotalDays(totalPlanDays);
+        if (!allDays.isEmpty()) {
+            DietPlan.DayPlan first = allDays.get(0);
+            merged.setMeals(first.getMeals());
+            merged.setDailyCalories(first.getDailyCalories());
+            merged.setMacroBreakdown(first.getMacroBreakdown());
+        }
+        merged.setEvidenceTags(allEvidence);
+        merged.setNutrientAudit(mergedAudit);
+        if (!notes.isEmpty()) {
+            merged.setNotes(String.join("\n\n", notes));
+        }
+        if (sourceMap != null && !sourceMap.isEmpty()) {
+            merged.setSourceIds(new ArrayList<>(sourceMap.keySet()));
+        }
+        return merged;
+    }
+
+    /** Logs OpenAI usage from the raw response so you can correlate latency with prompt/completion size. */
+    private void logOpenAiUsage(String responseJson) {
+        try {
+            JsonNode root = objectMapper.readTree(responseJson);
+            JsonNode usage = root.path("usage");
+            if (usage.isMissingNode() || !usage.isObject()) {
+                return;
+            }
+            log.info("openai.plan usage prompt_tokens={} completion_tokens={} total_tokens={}",
+                    usage.path("prompt_tokens").asInt(),
+                    usage.path("completion_tokens").asInt(),
+                    usage.path("total_tokens").asInt());
+        } catch (Exception e) {
+            log.debug("Could not parse usage from OpenAI response", e);
+        }
+    }
+
+    private DietPlan callOpenAISingle(String userMessage, Map<String, ExpertSource> sourceMap, int segmentDays) {
+        int effectiveMax = computeEffectiveMaxTokens(segmentDays);
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "max_tokens", maxTokens,
+                "max_tokens", effectiveMax,
                 "response_format", Map.of("type", "json_object"),
                 "messages", List.of(
                         Map.of("role", "system", "content", SYSTEM_PROMPT),
@@ -510,6 +726,7 @@ public class OpenAIService {
                 )
         );
 
+        long t0 = System.currentTimeMillis();
         try {
             String responseJson = openAiWebClient.post()
                     .uri("/chat/completions")
@@ -517,7 +734,18 @@ public class OpenAIService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-            return parseResponse(responseJson, sourceMap);
+            long chatMs = System.currentTimeMillis() - t0;
+            logOpenAiUsage(responseJson);
+            long tParseStart = System.currentTimeMillis();
+            DietPlan plan = parseResponse(responseJson, sourceMap);
+            long parseMs = System.currentTimeMillis() - tParseStart;
+            log.info("openai.plan phase=chat_completion_ms={} parse_ms={} effective_max_tokens={}", chatMs, parseMs, effectiveMax);
+            return plan;
+        } catch (WebClientResponseException e) {
+            String body = e.getResponseBodyAsString();
+            log.error("OpenAI API HTTP {}: {}", e.getStatusCode(), body);
+            throw new RuntimeException("OpenAI API error (" + e.getStatusCode() + "): "
+                    + (body != null && !body.isBlank() ? body : e.getMessage()), e);
         } catch (Exception e) {
             log.error("OpenAI API call failed", e);
             throw new RuntimeException("Failed to generate diet plan: " + e.getMessage(), e);
@@ -602,7 +830,17 @@ public class OpenAIService {
     private DietPlan parseResponse(String responseJson, Map<String, ExpertSource> sourceMap) {
         try {
             JsonNode root = objectMapper.readTree(responseJson);
-            String content = root.path("choices").get(0).path("message").path("content").asText();
+            JsonNode choices = root.path("choices");
+            if (!choices.isArray() || choices.isEmpty()) {
+                String snippet = responseJson.length() > 800 ? responseJson.substring(0, 800) + "…" : responseJson;
+                log.error("OpenAI response missing choices: {}", snippet);
+                throw new RuntimeException("OpenAI response missing choices (invalid key, rate limit, or API error body).");
+            }
+            String content = choices.get(0).path("message").path("content").asText();
+            if (content == null || content.isBlank()) {
+                log.error("OpenAI returned empty message content");
+                throw new RuntimeException("OpenAI returned empty message content.");
+            }
             JsonNode p = objectMapper.readTree(content);
 
             DietPlan dp = new DietPlan();

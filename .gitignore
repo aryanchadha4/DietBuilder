@@ -1,4 +1,5 @@
 # Java / Maven
+backend/logs/
 backend/target/
 *.class
 *.jar

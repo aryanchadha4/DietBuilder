@@ -113,6 +113,8 @@ public class DietRecommendationService {
                                            List<String> cuisines) {
         UserProfile profile = getProfile(profileId);
         long startTime = System.currentTimeMillis();
+        log.info("recommendation.start profileId={} numDays={} cuisines={}", profileId, numDays,
+                cuisines == null ? List.of() : cuisines);
 
         User user = getCurrentUser();
         List<String> storedDislikes = foodPreferenceService.getActiveDislikedFoodNames(user.getId());
@@ -125,7 +127,9 @@ public class DietRecommendationService {
         log.info("Excluding {} disliked foods from plan generation", allDisliked.size());
 
         log.info("Running pre-generation safety checks for profile {}", profileId);
+        long tPreCheckStart = System.currentTimeMillis();
         SafetyGuardrailService.SafetyCheckResult preCheck = safetyGuardrailService.runPreChecks(profile);
+        long preCheckMs = System.currentTimeMillis() - tPreCheckStart;
 
         List<String> cuisineList = normalizeCuisineList(cuisines);
 
@@ -144,12 +148,18 @@ public class DietRecommendationService {
 
         List<CulturalFoodGroup> culturalFoods = loadCulturalFoodGroups(cuisineList);
 
+        long tRetrievalStart = System.currentTimeMillis();
         ExpertKnowledgeService.RetrievalResult retrievalResult = expertKnowledgeService.retrieveForProfile(profile, cuisineList, 15);
+        long retrievalMs = System.currentTimeMillis() - tRetrievalStart;
         List<ExpertSource> sources = retrievalResult.sources();
+        long tConflictStart = System.currentTimeMillis();
         List<DietPlan.ConflictNote> conflicts = conflictResolutionService.resolve(sources);
+        long conflictMs = System.currentTimeMillis() - tConflictStart;
 
         log.info("Generating {}-day diet plan via OpenAI for profile {}", numDays, profileId);
+        long tOpenAiStart = System.currentTimeMillis();
         DietPlan plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
+        long openAiMs = System.currentTimeMillis() - tOpenAiStart;
         plan.setProfileId(profileId);
         plan.setCuisinePreferences(new ArrayList<>(cuisineList));
         plan.setSourceIds(sources.stream().map(ExpertSource::getId).toList());
@@ -164,22 +174,30 @@ public class DietRecommendationService {
             plan.setConfidenceStatement("Limited expert evidence was retrieved for this profile. Recommendations are lower confidence.");
         }
 
+        long tAuditStart = System.currentTimeMillis();
         if (plan.getNutrientAudit() == null) {
             log.info("Running server-side nutrient audit");
             runNutrientAudit(plan, profile);
         }
+        long auditMs = System.currentTimeMillis() - tAuditStart;
 
+        long tPostCheckStart = System.currentTimeMillis();
         SafetyGuardrailService.SafetyCheckResult postCheck = safetyGuardrailService.runPostChecks(plan, profile);
+        long postCheckMs = System.currentTimeMillis() - tPostCheckStart;
         List<DietPlan.SafetyAlert> allAlerts = new ArrayList<>(preCheck.getAlerts());
         allAlerts.addAll(postCheck.getAlerts());
         plan.setSafetyAlerts(allAlerts);
         plan.setSafetyCleared(!postCheck.isBlocked());
 
+        long tSaveStart = System.currentTimeMillis();
         DietPlan saved = dietPlanRepository.save(plan);
+        long saveMs = System.currentTimeMillis() - tSaveStart;
 
         safetyGuardrailService.persistAlerts(allAlerts, profileId, saved.getId());
 
         long latencyMs = System.currentTimeMillis() - startTime;
+        log.info("recommendation.done profileId={} planId={} total_ms={} pre_check_ms={} rag_retrieval_ms={} conflict_resolve_ms={} openai_total_ms={} nutrient_audit_ms={} post_check_ms={} save_ms={}",
+                profileId, saved.getId(), latencyMs, preCheckMs, retrievalMs, conflictMs, openAiMs, auditMs, postCheckMs, saveMs);
         List<String> safetyChecks = List.of("pre_generation_safety", "post_generation_safety");
         List<String> postSteps = List.of("nutrient_audit", "safety_post_check", "alert_persistence");
         String userMessage = openAIService.buildUserMessage(profile, cuisineList, culturalFoods, numDays, allDisliked);

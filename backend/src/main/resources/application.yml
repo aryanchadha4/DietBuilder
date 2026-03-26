@@ -1,5 +1,27 @@
 server:
   port: 8080
+  error:
+    # So API clients see the real cause (e.g. OpenAI 401) instead of only "Internal Server Error"
+    include-message: always
+    include-binding-errors: always
+
+# Logs: console + rolling file under ./logs/ (when running the JAR or `mvn spring-boot:run` from backend/)
+logging:
+  level:
+    root: INFO
+    com.dietbuilder: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+  file:
+    name: ${LOG_FILE:logs/dietbuilder.log}
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 14
+      total-size-cap: 1GB
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger{36} [requestId=%X{requestId:-}] - %msg%n"
+    file: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger{36} [requestId=%X{requestId:-}] - %msg%n"
 
 spring:
   data:
@@ -11,7 +33,14 @@ openai:
   api:
     key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-4o}
+    # Upper bound; effective tokens per request are min(this, a day-scaled cap) to avoid oversized completions for short plans
     max-tokens: ${OPENAI_MAX_TOKENS:16384}
+  plan:
+    # 0 = one API call for the full plan. >0 splits into segments of at most this many days (parallel requests; cross-chunk variety is prompt-only)
+    chunk-days: ${OPENAI_PLAN_CHUNK_DAYS:0}
+    chunk-parallelism: ${OPENAI_PLAN_CHUNK_PARALLELISM:4}
+    # Truncate long expert source summaries in the user message to save prompt tokens
+    evidence-summary-max-chars: ${OPENAI_PLAN_EVIDENCE_SUMMARY_MAX_CHARS:400}
 
 usda:
   api:
@@ -21,6 +50,8 @@ rag:
   embedding:
     model: ${RAG_EMBEDDING_MODEL:text-embedding-3-small}
     dimensions: ${RAG_EMBEDDING_DIMENSIONS:1536}
+    # Parallel OpenAI embedding calls when backfilling missing source vectors (bounded)
+    backfill-concurrency: ${RAG_EMBEDDING_BACKFILL_CONCURRENCY:4}
   retrieval:
     top-k: ${RAG_TOP_K:15}
     min-relevance-threshold: ${RAG_MIN_RELEVANCE_THRESHOLD:0.3}
