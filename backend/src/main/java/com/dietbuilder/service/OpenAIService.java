@@ -6,6 +6,8 @@ import com.dietbuilder.model.ExpertSource;
 import com.dietbuilder.model.UserProfile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +29,7 @@ public class OpenAIService {
     private final WebClient openAiWebClient;
     private final ObjectMapper objectMapper;
     private final NutrientReferenceService nutrientReferenceService;
+    private final CalorieTargetCalculator calorieTargetCalculator;
 
     @Value("${openai.api.model}")
     private String model;
@@ -42,6 +45,24 @@ public class OpenAIService {
 
     @Value("${openai.plan.evidence-summary-max-chars:400}")
     private int evidenceSummaryMaxChars;
+
+    @Value("${openai.plan.hybrid-polish-model:gpt-4o-mini}")
+    private String hybridPolishModel;
+
+    @Value("${openai.plan.hybrid-polish-max-tokens:2048}")
+    private int hybridPolishMaxTokens;
+
+    private static final String HYBRID_POLISH_SYSTEM = """
+            You are a registered dietitian assistant. The meal structure and portions are FIXED by the server.
+            Return ONLY valid JSON. Do not change calories, food lists, fdcIds, or quantityGrams.
+            Improve meal titles, day labels, and add one short rationale sentence per meal.
+            """;
+
+    private static final String HYBRID_EVIDENCE_SYSTEM = """
+            You cite expert sources by id. Return ONLY valid JSON: { "evidenceTags": [ ... ] }
+            Each tag: claim, level (GUIDELINE_BACKED|META_ANALYSIS|OBSERVATIONAL|LOW_CONFIDENCE), source, explanation, sourceId.
+            At most 6 tags; keep explanations under 220 characters.
+            """;
 
     /**
      * When generating a plan in parallel chunks, identifies one segment (day range) of the overall plan.
@@ -233,10 +254,12 @@ public class OpenAIService {
         List<ChunkContext> contexts = buildChunkContexts(numDays, planChunkDays);
         if (contexts.size() == 1) {
             ChunkContext ctx = contexts.get(0);
+            long tBuild = System.currentTimeMillis();
             String userMessage = useExpertEvidenceBlock
                     ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
                     : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
-            return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
+            long promptBuildMs = System.currentTimeMillis() - tBuild;
+            return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays(), promptBuildMs);
         }
         log.info("openai.plan chunking: parallel_chunks={} chunk_days_setting={} total_days={} (cross-chunk variety is prompt-only)",
                 contexts.size(), planChunkDays, numDays);
@@ -246,10 +269,12 @@ public class OpenAIService {
             List<CompletableFuture<DietPlan>> futures = new ArrayList<>();
             for (ChunkContext ctx : contexts) {
                 futures.add(CompletableFuture.supplyAsync(() -> {
+                    long tBuild = System.currentTimeMillis();
                     String userMessage = useExpertEvidenceBlock
                             ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
                             : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
-                    return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
+                    long promptBuildMs = System.currentTimeMillis() - tBuild;
+                    return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays(), promptBuildMs);
                 }, executor));
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -297,7 +322,10 @@ public class OpenAIService {
         }
 
         sb.append("\nAdapt the plan to address these issues while maintaining safety and nutritional adequacy.");
-        return callOpenAISingle(sb.toString(), Map.of(), numDays);
+        long tBuild = System.currentTimeMillis();
+        String msg = sb.toString();
+        long promptBuildMs = System.currentTimeMillis() - tBuild;
+        return callOpenAISingle(msg, Map.of(), numDays, promptBuildMs);
     }
 
     @lombok.Data
@@ -409,31 +437,13 @@ public class OpenAIService {
             sb.append("- No cardio\n");
         }
 
-        double avgDailyMinutes = 0;
-        if (profile.getStrengthTraining() != null)
-            avgDailyMinutes += profile.getStrengthTraining().stream().mapToDouble(e -> e.getDaysPerWeek() * e.getDurationMinutes() / 7.0).sum();
-        if (profile.getCardioSchedule() != null)
-            avgDailyMinutes += profile.getCardioSchedule().stream().mapToDouble(e -> e.getDaysPerWeek() * e.getDurationMinutes() / 7.0).sum();
-
-        double bmr = computeBMR(profile);
-        double activityMultiplier = avgDailyMinutes < 15 ? 1.2 : avgDailyMinutes < 30 ? 1.375 : avgDailyMinutes < 60 ? 1.55 : avgDailyMinutes < 90 ? 1.725 : 1.9;
-        double tdee = bmr * activityMultiplier;
-
-        double calorieTarget = tdee;
-        String targetRationale = "maintenance";
-        List<String> goals = profile.getGoals() != null ? profile.getGoals() : List.of();
-        boolean wantsLoss = goals.stream().anyMatch(g -> g.toLowerCase().contains("lose weight") || g.toLowerCase().contains("reduce body fat"));
-        boolean wantsGain = goals.stream().anyMatch(g -> g.toLowerCase().contains("build muscle") || g.toLowerCase().contains("gain weight"));
-        if (wantsLoss && !wantsGain) {
-            calorieTarget = tdee - 500;
-            targetRationale = "deficit of 500 kcal for fat loss (~1 lb/week)";
-        } else if (wantsGain && !wantsLoss) {
-            calorieTarget = tdee + 300;
-            targetRationale = "surplus of 300 kcal for lean muscle gain";
-        } else if (wantsGain && wantsLoss) {
-            calorieTarget = tdee - 200;
-            targetRationale = "mild deficit of 200 kcal for body recomposition";
-        }
+        CalorieTargetCalculator.Result ct = calorieTargetCalculator.compute(profile);
+        double bmr = ct.bmr();
+        double activityMultiplier = ct.activityMultiplier();
+        double avgDailyMinutes = ct.avgDailyExerciseMinutes();
+        double tdee = ct.tdee();
+        double calorieTarget = ct.dailyCalorieTarget();
+        String targetRationale = ct.goalAdjustmentRationale();
 
         sb.append("\n## DAILY CALORIE TARGET (MANDATORY — DO NOT DEVIATE)\n");
         sb.append(String.format("- BMR (Mifflin-St Jeor): %.0f kcal\n", bmr));
@@ -634,15 +644,6 @@ public class OpenAIService {
         return sb.toString();
     }
 
-    private double computeBMR(UserProfile profile) {
-        String sex = profile.getGender() != null ? profile.getGender().toLowerCase() : "male";
-        if (sex.startsWith("f")) {
-            return 10 * profile.getWeightKg() + 6.25 * profile.getHeightCm() - 5 * profile.getAge() - 161;
-        } else {
-            return 10 * profile.getWeightKg() + 6.25 * profile.getHeightCm() - 5 * profile.getAge() + 5;
-        }
-    }
-
     private DietPlan mergeDietPlans(List<DietPlan> parts, int totalPlanDays, Map<String, ExpertSource> sourceMap) {
         if (parts.isEmpty()) {
             throw new IllegalArgumentException("empty plan chunks");
@@ -714,7 +715,7 @@ public class OpenAIService {
         }
     }
 
-    private DietPlan callOpenAISingle(String userMessage, Map<String, ExpertSource> sourceMap, int segmentDays) {
+    private DietPlan callOpenAISingle(String userMessage, Map<String, ExpertSource> sourceMap, int segmentDays, long promptBuildMs) {
         int effectiveMax = computeEffectiveMaxTokens(segmentDays);
         Map<String, Object> requestBody = Map.of(
                 "model", model,
@@ -726,6 +727,7 @@ public class OpenAIService {
                 )
         );
 
+        log.info("openai.plan phase=prompt_build_ms={} effective_max_tokens={}", promptBuildMs, effectiveMax);
         long t0 = System.currentTimeMillis();
         try {
             String responseJson = openAiWebClient.post()
@@ -749,6 +751,179 @@ public class OpenAIService {
         } catch (Exception e) {
             log.error("OpenAI API call failed", e);
             throw new RuntimeException("Failed to generate diet plan: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Slim completion: titles, labels, short rationale only. Does not alter foods or nutrients.
+     */
+    public void applyHybridPolish(DietPlan plan, UserProfile profile, List<String> cuisines) {
+        if (plan.getDays() == null || plan.getDays().isEmpty()) {
+            return;
+        }
+        long tBuild = System.currentTimeMillis();
+        String userMessage = buildHybridPolishUserMessage(plan, profile, cuisines);
+        long promptBuildMs = System.currentTimeMillis() - tBuild;
+        try {
+            JsonNode root = callOpenAiJsonObject(HYBRID_POLISH_SYSTEM, userMessage, hybridPolishModel, hybridPolishMaxTokens, promptBuildMs);
+            mergeHybridPolish(plan, root);
+        } catch (Exception e) {
+            log.warn("Hybrid polish failed; returning deterministic plan text. Cause: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Optional second call for expert mode: evidence tags tied to retrieved sources.
+     */
+    public void generateHybridExpertEvidence(DietPlan plan, UserProfile profile, List<ExpertSource> sources) {
+        if (sources == null || sources.isEmpty()) {
+            return;
+        }
+        long tBuild = System.currentTimeMillis();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Profile age=").append(profile.getAge()).append(" gender=").append(profile.getGender()).append("\n");
+        sb.append("Plan daily kcal=").append(plan.getDailyCalories()).append("\n");
+        sb.append("Sources (use sourceId in tags):\n");
+        for (ExpertSource s : sources) {
+            if (s.getId() == null) continue;
+            sb.append("- id=").append(s.getId()).append(" title=").append(s.getTitle()).append("\n");
+        }
+        sb.append("\nReturn JSON only with evidenceTags array.");
+        long promptBuildMs = System.currentTimeMillis() - tBuild;
+        try {
+            JsonNode root = callOpenAiJsonObject(HYBRID_EVIDENCE_SYSTEM, sb.toString(), hybridPolishModel, 1200, promptBuildMs);
+            List<DietPlan.EvidenceTag> tags = new ArrayList<>();
+            for (JsonNode et : root.path("evidenceTags")) {
+                DietPlan.EvidenceTag tag = new DietPlan.EvidenceTag();
+                tag.setClaim(et.path("claim").asText());
+                try {
+                    tag.setLevel(DietPlan.EvidenceLevel.valueOf(et.path("level").asText()));
+                } catch (IllegalArgumentException e) {
+                    tag.setLevel(DietPlan.EvidenceLevel.LOW_CONFIDENCE);
+                }
+                tag.setSource(et.path("source").asText());
+                tag.setExplanation(et.path("explanation").asText());
+                tag.setSourceId(et.path("sourceId").asText(null));
+                tags.add(tag);
+            }
+            plan.setEvidenceTags(tags);
+        } catch (Exception e) {
+            log.warn("Hybrid expert evidence call failed: {}", e.getMessage());
+        }
+    }
+
+    private String buildHybridPolishUserMessage(DietPlan plan, UserProfile profile, List<String> cuisines) {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("dailyCalories", plan.getDailyCalories());
+        root.put("profileName", profile.getName() != null ? profile.getName() : "");
+        if (cuisines != null && !cuisines.isEmpty()) {
+            root.put("cuisines", String.join(", ", cuisines));
+        }
+        ArrayNode days = objectMapper.createArrayNode();
+        for (DietPlan.DayPlan d : plan.getDays()) {
+            ObjectNode dn = objectMapper.createObjectNode();
+            dn.put("dayNumber", d.getDayNumber());
+            dn.put("label", d.getLabel());
+            ArrayNode meals = objectMapper.createArrayNode();
+            for (DietPlan.Meal m : d.getMeals()) {
+                ObjectNode mn = objectMapper.createObjectNode();
+                mn.put("slot", m.getName());
+                mn.put("calories", m.getCalories());
+                ArrayNode foods = objectMapper.createArrayNode();
+                for (DietPlan.MealFood mf : m.getFoods()) {
+                    ObjectNode fn = objectMapper.createObjectNode();
+                    fn.put("fdcId", mf.getFdcId() != null ? mf.getFdcId() : "");
+                    fn.put("name", mf.getName());
+                    fn.put("quantityGrams", mf.getQuantityGrams());
+                    foods.add(fn);
+                }
+                mn.set("foods", foods);
+                meals.add(mn);
+            }
+            dn.set("meals", meals);
+            days.add(dn);
+        }
+        root.set("days", days);
+        return """
+                Schema: { "planContent": string, "days": [ { "dayNumber": number, "label": string,
+                  "meals": [ { "name": string, "rationale": string } ] } ] }
+                Match the same number of days and meals per day as the input. Input JSON:
+                """ + root;
+    }
+
+    private void mergeHybridPolish(DietPlan plan, JsonNode p) {
+        if (p.has("planContent") && !p.path("planContent").asText().isBlank()) {
+            plan.setPlanContent(p.path("planContent").asText());
+        }
+        JsonNode daysOut = p.path("days");
+        if (!daysOut.isArray()) {
+            return;
+        }
+        Map<Integer, JsonNode> byDay = new LinkedHashMap<>();
+        for (JsonNode d : daysOut) {
+            byDay.put(d.path("dayNumber").asInt(), d);
+        }
+        for (DietPlan.DayPlan day : plan.getDays()) {
+            JsonNode dNode = byDay.get(day.getDayNumber());
+            if (dNode == null) {
+                continue;
+            }
+            if (dNode.has("label") && !dNode.path("label").asText().isBlank()) {
+                day.setLabel(dNode.path("label").asText());
+            }
+            JsonNode mealsOut = dNode.path("meals");
+            if (!mealsOut.isArray()) {
+                continue;
+            }
+            List<DietPlan.Meal> meals = day.getMeals();
+            for (int i = 0; i < meals.size() && i < mealsOut.size(); i++) {
+                JsonNode mNode = mealsOut.get(i);
+                if (mNode.has("name") && !mNode.path("name").asText().isBlank()) {
+                    meals.get(i).setName(mNode.path("name").asText());
+                }
+                if (mNode.has("rationale")) {
+                    meals.get(i).setRationale(mNode.path("rationale").asText());
+                }
+            }
+        }
+    }
+
+    private JsonNode callOpenAiJsonObject(String systemPrompt, String userMessage, String modelName, int maxTok, long promptBuildMs) {
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("model", modelName);
+            requestBody.put("max_tokens", maxTok);
+            requestBody.put("response_format", Map.of("type", "json_object"));
+            requestBody.put("messages", List.of(
+                    Map.of("role", "system", "content", systemPrompt),
+                    Map.of("role", "user", "content", userMessage)
+            ));
+            log.info("openai.hybrid phase=prompt_build_ms={} model={} max_tokens={}", promptBuildMs, modelName, maxTok);
+            long t0 = System.currentTimeMillis();
+            String responseJson = openAiWebClient.post()
+                    .uri("/chat/completions")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            long chatMs = System.currentTimeMillis() - t0;
+            logOpenAiUsage(responseJson);
+            log.info("openai.hybrid phase=chat_completion_ms={}", chatMs);
+            JsonNode root = objectMapper.readTree(responseJson);
+            String content = root.path("choices").get(0).path("message").path("content").asText();
+            if (content == null || content.isBlank()) {
+                throw new RuntimeException("empty polish response");
+            }
+            return objectMapper.readTree(content);
+        } catch (WebClientResponseException e) {
+            String body = e.getResponseBodyAsString();
+            log.error("OpenAI hybrid HTTP {}: {}", e.getStatusCode(), body);
+            throw new RuntimeException("OpenAI API error (" + e.getStatusCode() + "): "
+                    + (body != null && !body.isBlank() ? body : e.getMessage()), e);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("OpenAI hybrid call failed: " + e.getMessage(), e);
         }
     }
 

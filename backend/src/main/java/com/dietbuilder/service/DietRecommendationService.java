@@ -14,12 +14,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -37,6 +41,14 @@ public class DietRecommendationService {
     private final FoodPreferenceService foodPreferenceService;
     private final ExpertKnowledgeService expertKnowledgeService;
     private final ConflictResolutionService conflictResolutionService;
+    private final MealBankService mealBankService;
+    private final PlanAssemblyService planAssemblyService;
+
+    @Value("${openai.plan.mode:monolith}")
+    private String defaultPlanMode;
+
+    @Value("${openai.plan.hybrid-depth:detailed}")
+    private String defaultHybridDepth;
 
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -111,10 +123,18 @@ public class DietRecommendationService {
 
     public DietPlan generateRecommendation(String profileId, int numDays, List<String> dislikedFoods,
                                            List<String> cuisines) {
+        return generateRecommendation(profileId, numDays, dislikedFoods, cuisines, null, null, null);
+    }
+
+    public DietPlan generateRecommendation(String profileId, int numDays, List<String> dislikedFoods,
+                                           List<String> cuisines, String planMode, String hybridDepth,
+                                           Integer syncDays) {
         UserProfile profile = getProfile(profileId);
         long startTime = System.currentTimeMillis();
-        log.info("recommendation.start profileId={} numDays={} cuisines={}", profileId, numDays,
-                cuisines == null ? List.of() : cuisines);
+        String mode = planMode != null && !planMode.isBlank() ? planMode : defaultPlanMode;
+        String depth = hybridDepth != null && !hybridDepth.isBlank() ? hybridDepth : defaultHybridDepth;
+        log.info("recommendation.start profileId={} numDays={} cuisines={} planMode={} hybridDepth={} syncDays={}",
+                profileId, numDays, cuisines == null ? List.of() : cuisines, mode, depth, syncDays);
 
         User user = getCurrentUser();
         List<String> storedDislikes = foodPreferenceService.getActiveDislikedFoodNames(user.getId());
@@ -156,9 +176,28 @@ public class DietRecommendationService {
         List<DietPlan.ConflictNote> conflicts = conflictResolutionService.resolve(sources);
         long conflictMs = System.currentTimeMillis() - tConflictStart;
 
-        log.info("Generating {}-day diet plan via OpenAI for profile {}", numDays, profileId);
+        log.info("Generating {}-day diet plan (mode={}) for profile {}", numDays, mode, profileId);
         long tOpenAiStart = System.currentTimeMillis();
-        DietPlan plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
+        DietPlan plan;
+        if ("hybrid".equalsIgnoreCase(mode)) {
+            List<String> ragKeywords = MealBankService.keywordsFromRetrieval(retrievalResult);
+            MealBankService.MealPools pools = mealBankService.getOrBuildPools(cuisineList, allDisliked, ragKeywords);
+            int sync = syncDays != null ? Math.min(Math.max(1, syncDays), numDays) : numDays;
+            plan = planAssemblyService.assembleHybridPlan(profile, pools, sync, 1, cuisineList, startTime);
+            plan.setTotalDays(numDays);
+            if (!"fast".equalsIgnoreCase(depth)) {
+                long tPolish = System.currentTimeMillis();
+                openAIService.applyHybridPolish(plan, profile, cuisineList);
+                log.info("hybrid.polish_ms={}", System.currentTimeMillis() - tPolish);
+            }
+            if ("expert".equalsIgnoreCase(depth)) {
+                long tEv = System.currentTimeMillis();
+                openAIService.generateHybridExpertEvidence(plan, profile, sources);
+                log.info("hybrid.expert_evidence_ms={}", System.currentTimeMillis() - tEv);
+            }
+        } else {
+            plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
+        }
         long openAiMs = System.currentTimeMillis() - tOpenAiStart;
         plan.setProfileId(profileId);
         plan.setCuisinePreferences(new ArrayList<>(cuisineList));
@@ -200,7 +239,9 @@ public class DietRecommendationService {
                 profileId, saved.getId(), latencyMs, preCheckMs, retrievalMs, conflictMs, openAiMs, auditMs, postCheckMs, saveMs);
         List<String> safetyChecks = List.of("pre_generation_safety", "post_generation_safety");
         List<String> postSteps = List.of("nutrient_audit", "safety_post_check", "alert_persistence");
-        String userMessage = openAIService.buildUserMessage(profile, cuisineList, culturalFoods, numDays, allDisliked);
+        String userMessage = "hybrid".equalsIgnoreCase(mode)
+                ? openAIService.buildUserMessage(profile, cuisineList, culturalFoods, numDays, allDisliked)
+                : openAIService.buildUserMessageWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
         auditService.logRecommendation(profileId, saved.getId(), profile, cuisineList,
                 openAIService.getModelName(), openAIService.getSystemPrompt(),
                 userMessage, safetyChecks, postSteps, latencyMs,
@@ -240,22 +281,35 @@ public class DietRecommendationService {
 
     private void runNutrientAudit(DietPlan plan, UserProfile profile) {
         java.util.Map<String, Double> nutrientTotals = new java.util.LinkedHashMap<>();
-        if (plan.getMeals() != null) {
-            for (DietPlan.Meal meal : plan.getMeals()) {
-                if (meal.getFoods() != null) {
-                    for (DietPlan.MealFood food : meal.getFoods()) {
-                        if (food.getKeyNutrients() != null) {
-                            for (var e : food.getKeyNutrients().entrySet()) {
-                                nutrientTotals.merge(e.getKey(), e.getValue(), Double::sum);
-                            }
-                        }
+        Consumer<DietPlan.Meal> addMeal = meal -> {
+            if (meal.getFoods() == null) {
+                return;
+            }
+            for (DietPlan.MealFood food : meal.getFoods()) {
+                if (food.getKeyNutrients() != null) {
+                    for (var e : food.getKeyNutrients().entrySet()) {
+                        nutrientTotals.merge(e.getKey(), e.getValue(), Double::sum);
                     }
                 }
             }
+        };
+        if (plan.getDays() != null && !plan.getDays().isEmpty()) {
+            for (DietPlan.DayPlan day : plan.getDays()) {
+                if (day.getMeals() != null) {
+                    day.getMeals().forEach(addMeal);
+                }
+            }
+        } else if (plan.getMeals() != null) {
+            plan.getMeals().forEach(addMeal);
+        }
+        int nDays = plan.getDays() != null && !plan.getDays().isEmpty() ? plan.getDays().size() : 1;
+        java.util.Map<String, Double> dailyAvg = new LinkedHashMap<>();
+        for (var e : nutrientTotals.entrySet()) {
+            dailyAvg.put(e.getKey(), e.getValue() / Math.max(1, nDays));
         }
         String sex = profile.getGender() != null ? profile.getGender().toLowerCase() : "male";
         java.util.Map<String, NutrientReferenceService.NutrientAdequacy> adequacyMap =
-                nutrientReferenceService.validateAdequacy(nutrientTotals, profile.getAge(), sex);
+                nutrientReferenceService.validateAdequacy(dailyAvg, profile.getAge(), sex);
         double score = nutrientReferenceService.computeAdequacyScore(adequacyMap);
 
         DietPlan.NutrientAudit audit = new DietPlan.NutrientAudit();
@@ -303,7 +357,7 @@ public class DietRecommendationService {
         }
 
         // Generate new plan (disliked foods auto-loaded from preferences)
-        DietPlan newPlan = generateRecommendation(profileId, numDays, request.getRejectedFoods(), cuisines);
+        DietPlan newPlan = generateRecommendation(profileId, numDays, request.getRejectedFoods(), cuisines, null, null, null);
 
         // Link to parent plan
         if (request.getParentPlanId() != null) {
@@ -359,6 +413,40 @@ public class DietRecommendationService {
         plan.setNutrientAudit(null);
         plan.setRemovedMealSlots(new ArrayList<>());
         return dietPlanRepository.save(plan);
+    }
+
+    /**
+     * Fills in remaining days when a hybrid run returned {@code totalDays} &gt; {@code days.size()}.
+     */
+    public DietPlan completePartialPlanDays(String planId) {
+        DietPlan existing = dietPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
+        UserProfile profile = getProfile(existing.getProfileId());
+        if (existing.getDays() == null || existing.getDays().isEmpty()) {
+            return existing;
+        }
+        int total = existing.getTotalDays() > 0 ? existing.getTotalDays() : existing.getDays().size();
+        if (existing.getDays().size() >= total) {
+            return existing;
+        }
+        int remaining = total - existing.getDays().size();
+        int firstDay = existing.getDays().size() + 1;
+        User user = getCurrentUser();
+        List<String> cuisines = normalizeCuisineList(existing.getCuisinePreferences());
+        List<String> disliked = foodPreferenceService.getActiveDislikedFoodNames(user.getId());
+        ExpertKnowledgeService.RetrievalResult retrievalResult = expertKnowledgeService.retrieveForProfile(profile, cuisines, 15);
+        List<String> ragKeywords = MealBankService.keywordsFromRetrieval(retrievalResult);
+        MealBankService.MealPools pools = mealBankService.getOrBuildPools(cuisines, disliked, ragKeywords);
+        DietPlan segment = planAssemblyService.assembleHybridPlan(profile, pools, remaining, firstDay, cuisines, System.currentTimeMillis());
+        existing.getDays().addAll(segment.getDays());
+        existing.setTotalDays(total);
+        recomputeMultiDayPlanAggregates(existing);
+        existing.setNutrientAudit(null);
+        runNutrientAudit(existing, profile);
+        SafetyGuardrailService.SafetyCheckResult postCheck = safetyGuardrailService.runPostChecks(existing, profile);
+        existing.setSafetyAlerts(postCheck.getAlerts());
+        existing.setSafetyCleared(!postCheck.isBlocked());
+        return dietPlanRepository.save(existing);
     }
 
     public List<DietPlan> getDietPlans(String profileId) {

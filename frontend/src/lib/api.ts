@@ -415,14 +415,32 @@ export const api = {
   },
 
   dietPlans: {
-    generate: (profileId: string, days: number = 14, cuisines: string[] = []) => {
+    generate: (
+      profileId: string,
+      days: number = 14,
+      cuisines: string[] = [],
+      options?: {
+        planMode?: "monolith" | "hybrid";
+        hybridDepth?: "fast" | "detailed" | "expert";
+        syncDays?: number;
+      }
+    ) => {
       const params = new URLSearchParams();
       params.set("days", String(days));
       for (const c of cuisines) params.append("cuisines", c);
+      if (options?.planMode) params.set("planMode", options.planMode);
+      if (options?.hybridDepth) params.set("hybridDepth", options.hybridDepth);
+      if (options?.syncDays != null && options.syncDays > 0) {
+        params.set("syncDays", String(options.syncDays));
+      }
       return request<DietPlan>(`/recommend/${profileId}?${params.toString()}`, {
         method: "POST",
       });
     },
+    completeRemainingDays: (planId: string) =>
+      request<DietPlan>(`/diet-plans/${planId}/complete-days`, {
+        method: "POST",
+      }),
     regenerate: (profileId: string, body: RegenerateRequest) =>
       request<DietPlan>(`/recommend/${profileId}/regenerate`, {
         method: "POST",

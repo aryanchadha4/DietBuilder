@@ -36,11 +36,19 @@ openai:
     # Upper bound; effective tokens per request are min(this, a day-scaled cap) to avoid oversized completions for short plans
     max-tokens: ${OPENAI_MAX_TOKENS:16384}
   plan:
+    # monolith = legacy full JSON from the model; hybrid = meal bank + assembly + optional slim polish
+    mode: ${OPENAI_PLAN_MODE:monolith}
+    # fast = no polish LLM; detailed = polish titles; expert = polish + evidence tag call
+    hybrid-depth: ${OPENAI_PLAN_HYBRID_DEPTH:detailed}
     # 0 = one API call for the full plan. >0 splits into segments of at most this many days (parallel requests; cross-chunk variety is prompt-only)
     chunk-days: ${OPENAI_PLAN_CHUNK_DAYS:0}
     chunk-parallelism: ${OPENAI_PLAN_CHUNK_PARALLELISM:4}
     # Truncate long expert source summaries in the user message to save prompt tokens
     evidence-summary-max-chars: ${OPENAI_PLAN_EVIDENCE_SUMMARY_MAX_CHARS:400}
+    hybrid-polish-model: ${OPENAI_PLAN_HYBRID_POLISH_MODEL:gpt-4o-mini}
+    hybrid-polish-max-tokens: ${OPENAI_PLAN_HYBRID_POLISH_MAX_TOKENS:2048}
+    hybrid:
+      meal-bank-cache-ttl-minutes: ${OPENAI_PLAN_MEAL_BANK_CACHE_TTL_MINUTES:60}
 
 usda:
   api:

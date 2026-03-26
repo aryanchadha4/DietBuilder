@@ -20,10 +20,20 @@ public class DietPlanController {
     public ResponseEntity<DietPlan> generateRecommendation(
             @PathVariable String profileId,
             @RequestParam(defaultValue = "14") int days,
-            @RequestParam(required = false) List<String> cuisines) {
+            @RequestParam(required = false) List<String> cuisines,
+            @RequestParam(required = false) String planMode,
+            @RequestParam(required = false) String hybridDepth,
+            @RequestParam(required = false) Integer syncDays) {
         List<String> c = cuisines != null ? cuisines : List.of();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(recommendationService.generateRecommendation(profileId, days, List.of(), c));
+                .body(recommendationService.generateRecommendation(profileId, days, List.of(), c,
+                        planMode, hybridDepth, syncDays));
+    }
+
+    /** Append remaining days for a partial hybrid plan ({@code days.size() < totalDays}). */
+    @PostMapping("/diet-plans/{planId}/complete-days")
+    public ResponseEntity<DietPlan> completePlanDays(@PathVariable String planId) {
+        return ResponseEntity.ok(recommendationService.completePartialPlanDays(planId));
     }
 
     @PostMapping("/recommend/{profileId}/regenerate")

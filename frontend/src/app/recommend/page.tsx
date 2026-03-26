@@ -80,6 +80,12 @@ function RecommendContent() {
     profileId || ""
   );
   const [numDays, setNumDays] = useState(14);
+  const [planMode, setPlanMode] = useState<"monolith" | "hybrid">("hybrid");
+  const [hybridDepth, setHybridDepth] = useState<
+    "fast" | "detailed" | "expert"
+  >("detailed");
+  /** First response only includes this many days when set (hybrid progressive). */
+  const [syncDays, setSyncDays] = useState<number | "">("");
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
   const [currentPlan, setCurrentPlan] = useState<DietPlan | null>(null);
   const [auditLog, setAuditLog] = useState<RecommendationLog | null>(null);
@@ -88,6 +94,7 @@ function RecommendContent() {
   const [rejectedThisSession, setRejectedThisSession] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [completingDays, setCompletingDays] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
@@ -122,12 +129,12 @@ function RecommendContent() {
   }, [selectedProfileId]);
 
   useEffect(() => {
-    if (!generating && !regenerating) return;
+    if (!generating && !regenerating && !completingDays) return;
     const interval = setInterval(() => {
       setLoadingMsg((prev) => (prev + 1) % LOADING_MESSAGES.length);
     }, 3500);
     return () => clearInterval(interval);
-  }, [generating, regenerating]);
+  }, [generating, regenerating, completingDays]);
 
   async function handleGenerate() {
     if (!selectedProfileId) {
@@ -142,7 +149,15 @@ function RecommendContent() {
       const plan = await api.dietPlans.generate(
         selectedProfileId,
         numDays,
-        selectedCuisines
+        selectedCuisines,
+        {
+          planMode,
+          hybridDepth,
+          syncDays:
+            typeof syncDays === "number" && syncDays > 0
+              ? Math.min(syncDays, numDays)
+              : undefined,
+        }
       );
       setCurrentPlan(plan);
 
@@ -173,6 +188,31 @@ function RecommendContent() {
       }
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleCompleteRemainingDays() {
+    if (!currentPlan?.id) return;
+    const total = currentPlan.totalDays ?? 0;
+    const have = currentPlan.days?.length ?? 0;
+    if (total <= 0 || have >= total) return;
+    setCompletingDays(true);
+    setLoadingMsg(0);
+    try {
+      const next = await api.dietPlans.completeRemainingDays(currentPlan.id);
+      setCurrentPlan(next);
+      setPastPlans((prev) =>
+        prev.map((p) => (p.id === next.id ? next : p))
+      );
+      toast.success(
+        `Extended plan: ${next.days?.length ?? 0} of ${next.totalDays ?? "?"} days`
+      );
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : "Failed to complete remaining days";
+      toast.error(msg);
+    } finally {
+      setCompletingDays(false);
     }
   }
 
@@ -362,6 +402,62 @@ function RecommendContent() {
               </select>
             </div>
 
+            <div className="w-full sm:w-44">
+              <label className="block text-sm font-medium mb-1.5">
+                Generation
+              </label>
+              <select
+                value={planMode}
+                onChange={(e) =>
+                  setPlanMode(e.target.value as "monolith" | "hybrid")
+                }
+                className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20"
+              >
+                <option value="hybrid">Hybrid (fast)</option>
+                <option value="monolith">Full AI (slow)</option>
+              </select>
+            </div>
+
+            {planMode === "hybrid" && (
+              <div className="w-full sm:w-44">
+                <label className="block text-sm font-medium mb-1.5">Depth</label>
+                <select
+                  value={hybridDepth}
+                  onChange={(e) =>
+                    setHybridDepth(
+                      e.target.value as "fast" | "detailed" | "expert"
+                    )
+                  }
+                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20"
+                >
+                  <option value="fast">Fast (no polish)</option>
+                  <option value="detailed">Detailed (+ titles)</option>
+                  <option value="expert">Expert (+ evidence)</option>
+                </select>
+              </div>
+            )}
+
+            {planMode === "hybrid" && (
+              <div className="w-full sm:w-36">
+                <label className="block text-sm font-medium mb-1.5">
+                  Sync days
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={numDays}
+                  placeholder="All"
+                  value={syncDays}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") setSyncDays("");
+                    else setSyncDays(Math.min(numDays, Math.max(1, Number(v))));
+                  }}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20"
+                />
+              </div>
+            )}
+
             <Button
               onClick={handleGenerate}
               loading={generating}
@@ -444,7 +540,7 @@ function RecommendContent() {
       </Card>
 
       {/* Loading state */}
-      {(generating || regenerating) && (
+      {(generating || regenerating || completingDays) && (
         <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
           <div className="relative mb-6">
             <div className="h-16 w-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
@@ -455,7 +551,9 @@ function RecommendContent() {
           <p className="text-xs text-muted-foreground mt-2">
             {regenerating
               ? "Refreshing plan changes..."
-              : `Generating ${numDays}-day plan. This may take 30-60 seconds.`}
+              : completingDays
+                ? "Loading remaining days..."
+                : `Generating ${numDays}-day plan. This may take 30-60 seconds.`}
           </p>
           <div className="mt-6 space-y-1.5">
             {LOADING_MESSAGES.slice(0, -1).map((msg, i) => (
@@ -501,6 +599,25 @@ function RecommendContent() {
       {/* Current plan */}
       {!generating && !regenerating && currentPlan && (
         <div className="space-y-6">
+          {currentPlan.totalDays != null &&
+            currentPlan.days != null &&
+            currentPlan.days.length < currentPlan.totalDays && (
+              <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-foreground">
+                  Showing {currentPlan.days.length} of {currentPlan.totalDays}{" "}
+                  days (progressive hybrid). Load the rest when ready.
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleCompleteRemainingDays}
+                  loading={completingDays}
+                  disabled={completingDays}
+                >
+                  Load remaining days
+                </Button>
+              </div>
+            )}
           <MultiDayPlanView
             plan={currentPlan}
             onRejectFood={handleRejectFood}

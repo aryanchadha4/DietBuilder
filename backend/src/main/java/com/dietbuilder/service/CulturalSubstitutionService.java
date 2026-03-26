@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,6 +26,8 @@ public class CulturalSubstitutionService {
     private final CulturalFoodGroupRepository culturalFoodGroupRepository;
     private final FoodItemRepository foodItemRepository;
     private final ObjectMapper objectMapper;
+
+    private final Map<String, List<SubstitutionOption>> substitutionCache = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
@@ -43,13 +46,21 @@ public class CulturalSubstitutionService {
     }
 
     public List<SubstitutionOption> getSubstitutions(int fdcId, String targetCulture) {
+        String cacheKey = fdcId + "|" + (targetCulture != null ? targetCulture.toLowerCase(Locale.ROOT) : "");
+        List<SubstitutionOption> cached = substitutionCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
         Optional<FoodItem> sourceOpt = foodItemRepository.findByFdcId(fdcId);
-        if (sourceOpt.isEmpty()) return List.of();
+        if (sourceOpt.isEmpty()) {
+            substitutionCache.put(cacheKey, List.of());
+            return List.of();
+        }
         FoodItem source = sourceOpt.get();
         String sourceCategory = guessCategory(source);
         List<CulturalFoodGroup> targetGroups = culturalFoodGroupRepository.findByCultureAndCategory(targetCulture, sourceCategory);
         if (targetGroups.isEmpty()) targetGroups = culturalFoodGroupRepository.findByCulture(targetCulture);
-        return targetGroups.stream().flatMap(g -> g.getFoods().stream()).map(eq -> {
+        List<SubstitutionOption> out = targetGroups.stream().flatMap(g -> g.getFoods().stream()).map(eq -> {
             SubstitutionOption opt = new SubstitutionOption();
             opt.setFdcId(eq.getFdcId());
             opt.setName(eq.getName());
@@ -58,6 +69,8 @@ public class CulturalSubstitutionService {
             opt.setCategory(sourceCategory);
             return opt;
         }).collect(Collectors.toList());
+        substitutionCache.put(cacheKey, out);
+        return out;
     }
 
     public Set<String> listCultures() {
