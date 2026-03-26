@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/dietbuilder}
+      database: dietbuilder
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-4o}
+    max-tokens: ${OPENAI_MAX_TOKENS:16384}
+
+usda:
+  api:
+    key: ${USDA_API_KEY:}
+
+rag:
+  embedding:
+    model: ${RAG_EMBEDDING_MODEL:text-embedding-3-small}
+    dimensions: ${RAG_EMBEDDING_DIMENSIONS:1536}
+  retrieval:
+    top-k: ${RAG_TOP_K:15}
+    min-relevance-threshold: ${RAG_MIN_RELEVANCE_THRESHOLD:0.3}
+    cache-ttl-minutes: ${RAG_CACHE_TTL_MINUTES:60}
+  ranking:
+    credibility-weight: ${RAG_CREDIBILITY_WEIGHT:0.4}
+    recency-weight: ${RAG_RECENCY_WEIGHT:0.2}
+    relevance-weight: ${RAG_RELEVANCE_WEIGHT:0.3}
+    specificity-weight: ${RAG_SPECIFICITY_WEIGHT:0.1}
+    recency-half-life-years: ${RAG_RECENCY_HALF_LIFE_YEARS:5}
+  scheduler:
+    verify-cron: ${RAG_VERIFY_CRON:0 0 3 * * SUN}
+    cache-cleanup-cron: ${RAG_CACHE_CLEANUP_CRON:0 0 */6 * * *}
+    health-cron: ${RAG_HEALTH_CRON:0 0 8 * * *}
+    source-stale-years: ${RAG_SOURCE_STALE_YEARS:7}

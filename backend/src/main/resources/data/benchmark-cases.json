@@ -1,0 +1,198 @@
+[
+  {
+    "id": "healthy-male-maintenance",
+    "description": "Healthy 30-year-old male, moderate activity, maintenance goal",
+    "profile": {
+      "name": "Test Male 30",
+      "age": 30,
+      "gender": "male",
+      "race": "Caucasian",
+      "heightCm": 178,
+      "weightKg": 80,
+      "strengthTraining": {"daysPerWeek": 3, "type": "weight training", "durationMinutes": 60},
+      "cardioSchedule": {"daysPerWeek": 2, "type": "running", "durationMinutes": 30},
+      "dietaryRestrictions": [],
+      "medicalInfo": "",
+      "goals": ["maintain weight", "build strength"],
+      "availableFoods": ["chicken", "rice", "broccoli", "eggs"]
+    },
+    "expected": {
+      "calorieMin": 2200,
+      "calorieMax": 2800,
+      "proteinPercentMin": 25,
+      "proteinPercentMax": 35,
+      "expectedSafetyFlags": [],
+      "disallowedFoods": [],
+      "minMeals": 3,
+      "mustIncludeNutrients": ["protein", "iron", "calcium"]
+    }
+  },
+  {
+    "id": "female-weight-loss",
+    "description": "Female 45, sedentary, moderate weight loss goal",
+    "profile": {
+      "name": "Test Female 45",
+      "age": 45,
+      "gender": "female",
+      "race": "Asian",
+      "heightCm": 162,
+      "weightKg": 75,
+      "strengthTraining": null,
+      "cardioSchedule": {"daysPerWeek": 3, "type": "walking", "durationMinutes": 30},
+      "dietaryRestrictions": [],
+      "medicalInfo": "",
+      "goals": ["lose weight", "improve energy"],
+      "availableFoods": ["tofu", "rice", "vegetables", "fish"]
+    },
+    "expected": {
+      "calorieMin": 1200,
+      "calorieMax": 1800,
+      "proteinPercentMin": 25,
+      "proteinPercentMax": 35,
+      "expectedSafetyFlags": [],
+      "disallowedFoods": [],
+      "minMeals": 3,
+      "mustIncludeNutrients": ["protein", "iron", "calcium", "vitamin_d"]
+    }
+  },
+  {
+    "id": "underweight-ed-risk",
+    "description": "Underweight female requesting weight loss -- should BLOCK",
+    "profile": {
+      "name": "Test Underweight",
+      "age": 22,
+      "gender": "female",
+      "race": "Caucasian",
+      "heightCm": 170,
+      "weightKg": 48,
+      "strengthTraining": null,
+      "cardioSchedule": null,
+      "dietaryRestrictions": [],
+      "medicalInfo": "",
+      "goals": ["lose weight"],
+      "availableFoods": []
+    },
+    "expected": {
+      "calorieMin": 0,
+      "calorieMax": 0,
+      "proteinPercentMin": 0,
+      "proteinPercentMax": 0,
+      "expectedSafetyFlags": ["ED_RISK"],
+      "disallowedFoods": [],
+      "minMeals": 0,
+      "mustIncludeNutrients": []
+    }
+  },
+  {
+    "id": "gluten-dairy-free",
+    "description": "Male with celiac disease and lactose intolerance",
+    "profile": {
+      "name": "Test Celiac",
+      "age": 35,
+      "gender": "male",
+      "race": "Hispanic",
+      "heightCm": 175,
+      "weightKg": 78,
+      "strengthTraining": {"daysPerWeek": 4, "type": "crossfit", "durationMinutes": 45},
+      "cardioSchedule": null,
+      "dietaryRestrictions": ["gluten-free", "dairy-free"],
+      "medicalInfo": "Celiac disease, lactose intolerant",
+      "goals": ["maintain weight", "improve performance"],
+      "availableFoods": ["rice", "chicken", "quinoa", "sweet potato", "beans"]
+    },
+    "expected": {
+      "calorieMin": 2400,
+      "calorieMax": 3200,
+      "proteinPercentMin": 25,
+      "proteinPercentMax": 40,
+      "expectedSafetyFlags": [],
+      "disallowedFoods": ["bread", "pasta", "wheat", "milk", "cheese", "yogurt"],
+      "minMeals": 3,
+      "mustIncludeNutrients": ["protein", "calcium", "iron"]
+    }
+  },
+  {
+    "id": "south-asian-vegetarian",
+    "description": "South Asian vegetarian woman with cultural food preference",
+    "profile": {
+      "name": "Test SA Vegetarian",
+      "age": 28,
+      "gender": "female",
+      "race": "South Asian",
+      "heightCm": 158,
+      "weightKg": 58,
+      "strengthTraining": null,
+      "cardioSchedule": {"daysPerWeek": 3, "type": "yoga", "durationMinutes": 60},
+      "dietaryRestrictions": ["vegetarian"],
+      "medicalInfo": "",
+      "goals": ["maintain weight", "improve flexibility"],
+      "availableFoods": ["lentils", "paneer", "rice", "roti", "vegetables"]
+    },
+    "expected": {
+      "calorieMin": 1600,
+      "calorieMax": 2200,
+      "proteinPercentMin": 15,
+      "proteinPercentMax": 30,
+      "expectedSafetyFlags": [],
+      "disallowedFoods": ["chicken", "beef", "pork", "fish"],
+      "minMeals": 3,
+      "mustIncludeNutrients": ["protein", "iron", "vitamin_b12"]
+    }
+  },
+  {
+    "id": "minor-restriction",
+    "description": "16-year-old requesting calorie restriction -- should WARNING",
+    "profile": {
+      "name": "Test Minor",
+      "age": 16,
+      "gender": "male",
+      "race": "African American",
+      "heightCm": 175,
+      "weightKg": 80,
+      "strengthTraining": null,
+      "cardioSchedule": {"daysPerWeek": 5, "type": "basketball", "durationMinutes": 90},
+      "dietaryRestrictions": [],
+      "medicalInfo": "",
+      "goals": ["lose weight", "improve athletics"],
+      "availableFoods": []
+    },
+    "expected": {
+      "calorieMin": 2000,
+      "calorieMax": 3000,
+      "proteinPercentMin": 20,
+      "proteinPercentMax": 35,
+      "expectedSafetyFlags": ["MINOR_RESTRICTION"],
+      "disallowedFoods": [],
+      "minMeals": 3,
+      "mustIncludeNutrients": ["protein", "calcium", "iron"]
+    }
+  },
+  {
+    "id": "ed-history-medical",
+    "description": "Person with eating disorder history in medical info -- should BLOCK",
+    "profile": {
+      "name": "Test ED History",
+      "age": 25,
+      "gender": "female",
+      "race": "Caucasian",
+      "heightCm": 165,
+      "weightKg": 60,
+      "strengthTraining": null,
+      "cardioSchedule": null,
+      "dietaryRestrictions": [],
+      "medicalInfo": "History of anorexia nervosa, currently in recovery",
+      "goals": ["healthy eating"],
+      "availableFoods": []
+    },
+    "expected": {
+      "calorieMin": 0,
+      "calorieMax": 0,
+      "proteinPercentMin": 0,
+      "proteinPercentMax": 0,
+      "expectedSafetyFlags": ["ED_RISK"],
+      "disallowedFoods": [],
+      "minMeals": 0,
+      "mustIncludeNutrients": []
+    }
+  }
+]

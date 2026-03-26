@@ -1,0 +1,1574 @@
+[
+  {
+    "fdcId": 171705,
+    "description": "Chicken breast, boneless, skinless, cooked",
+    "foodCategory": "Poultry",
+    "nutrients": {
+      "energy": {"amount": 165, "unit": "kcal"},
+      "protein": {"amount": 31.0, "unit": "g"},
+      "fat": {"amount": 3.6, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 15, "unit": "mg"},
+      "iron": {"amount": 1.0, "unit": "mg"},
+      "magnesium": {"amount": 29, "unit": "mg"},
+      "phosphorus": {"amount": 228, "unit": "mg"},
+      "potassium": {"amount": 256, "unit": "mg"},
+      "sodium": {"amount": 74, "unit": "mg"},
+      "zinc": {"amount": 1.0, "unit": "mg"},
+      "vitamin_c": {"amount": 0.0, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.6, "unit": "mg"},
+      "vitamin_b12": {"amount": 0.3, "unit": "mcg"},
+      "niacin": {"amount": 13.7, "unit": "mg"},
+      "selenium": {"amount": 27.6, "unit": "mcg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 175167,
+    "description": "Salmon, Atlantic, cooked",
+    "foodCategory": "Fish",
+    "nutrients": {
+      "energy": {"amount": 208, "unit": "kcal"},
+      "protein": {"amount": 20.4, "unit": "g"},
+      "fat": {"amount": 13.4, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 12, "unit": "mg"},
+      "iron": {"amount": 0.3, "unit": "mg"},
+      "magnesium": {"amount": 30, "unit": "mg"},
+      "potassium": {"amount": 363, "unit": "mg"},
+      "sodium": {"amount": 59, "unit": "mg"},
+      "zinc": {"amount": 0.4, "unit": "mg"},
+      "vitamin_d": {"amount": 11.1, "unit": "mcg"},
+      "vitamin_b12": {"amount": 2.8, "unit": "mcg"},
+      "niacin": {"amount": 8.6, "unit": "mg"},
+      "selenium": {"amount": 41.4, "unit": "mcg"}
+    },
+    "culturalTags": ["general", "northern-european", "east-asian"],
+    "allergenTags": ["fish"]
+  },
+  {
+    "fdcId": 170903,
+    "description": "Eggs, whole, cooked, scrambled",
+    "foodCategory": "Eggs",
+    "nutrients": {
+      "energy": {"amount": 149, "unit": "kcal"},
+      "protein": {"amount": 10.0, "unit": "g"},
+      "fat": {"amount": 11.0, "unit": "g"},
+      "carbohydrate": {"amount": 1.6, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 66, "unit": "mg"},
+      "iron": {"amount": 1.5, "unit": "mg"},
+      "vitamin_a": {"amount": 172, "unit": "mcg_RAE"},
+      "vitamin_d": {"amount": 1.3, "unit": "mcg"},
+      "vitamin_b12": {"amount": 0.8, "unit": "mcg"},
+      "selenium": {"amount": 22.5, "unit": "mcg"},
+      "folate": {"amount": 20, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": ["eggs"]
+  },
+  {
+    "fdcId": 170050,
+    "description": "Beef, ground, 90% lean, cooked",
+    "foodCategory": "Beef",
+    "nutrients": {
+      "energy": {"amount": 217, "unit": "kcal"},
+      "protein": {"amount": 26.1, "unit": "g"},
+      "fat": {"amount": 11.7, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "iron": {"amount": 2.7, "unit": "mg"},
+      "zinc": {"amount": 5.7, "unit": "mg"},
+      "vitamin_b12": {"amount": 2.6, "unit": "mcg"},
+      "niacin": {"amount": 5.6, "unit": "mg"},
+      "phosphorus": {"amount": 209, "unit": "mg"},
+      "potassium": {"amount": 330, "unit": "mg"},
+      "selenium": {"amount": 19.5, "unit": "mcg"}
+    },
+    "culturalTags": ["general", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174608,
+    "description": "Tofu, firm, raw",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 144, "unit": "kcal"},
+      "protein": {"amount": 17.3, "unit": "g"},
+      "fat": {"amount": 8.7, "unit": "g"},
+      "carbohydrate": {"amount": 2.8, "unit": "g"},
+      "fiber": {"amount": 2.3, "unit": "g"},
+      "calcium": {"amount": 683, "unit": "mg"},
+      "iron": {"amount": 2.7, "unit": "mg"},
+      "magnesium": {"amount": 58, "unit": "mg"},
+      "potassium": {"amount": 237, "unit": "mg"},
+      "sodium": {"amount": 14, "unit": "mg"},
+      "zinc": {"amount": 1.6, "unit": "mg"},
+      "selenium": {"amount": 17.4, "unit": "mcg"}
+    },
+    "culturalTags": ["east-asian", "southeast-asian"],
+    "allergenTags": ["soy"]
+  },
+  {
+    "fdcId": 173757,
+    "description": "Lentils, cooked, boiled",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 116, "unit": "kcal"},
+      "protein": {"amount": 9.0, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 20.1, "unit": "g"},
+      "fiber": {"amount": 7.9, "unit": "g"},
+      "iron": {"amount": 3.3, "unit": "mg"},
+      "magnesium": {"amount": 36, "unit": "mg"},
+      "potassium": {"amount": 369, "unit": "mg"},
+      "folate": {"amount": 181, "unit": "mcg_DFE"},
+      "phosphorus": {"amount": 180, "unit": "mg"},
+      "zinc": {"amount": 1.3, "unit": "mg"},
+      "manganese": {"amount": 0.5, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian", "middle-eastern", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 175215,
+    "description": "Chickpeas (garbanzo beans), cooked",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 164, "unit": "kcal"},
+      "protein": {"amount": 8.9, "unit": "g"},
+      "fat": {"amount": 2.6, "unit": "g"},
+      "carbohydrate": {"amount": 27.4, "unit": "g"},
+      "fiber": {"amount": 7.6, "unit": "g"},
+      "iron": {"amount": 2.9, "unit": "mg"},
+      "magnesium": {"amount": 48, "unit": "mg"},
+      "potassium": {"amount": 291, "unit": "mg"},
+      "folate": {"amount": 172, "unit": "mcg_DFE"},
+      "manganese": {"amount": 1.0, "unit": "mg"},
+      "zinc": {"amount": 1.5, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian", "middle-eastern", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 169738,
+    "description": "Black beans, cooked, boiled",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 132, "unit": "kcal"},
+      "protein": {"amount": 8.9, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 23.7, "unit": "g"},
+      "fiber": {"amount": 8.7, "unit": "g"},
+      "iron": {"amount": 2.1, "unit": "mg"},
+      "magnesium": {"amount": 70, "unit": "mg"},
+      "potassium": {"amount": 355, "unit": "mg"},
+      "folate": {"amount": 149, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["latin-american", "caribbean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 168880,
+    "description": "Rice, white, long-grain, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 130, "unit": "kcal"},
+      "protein": {"amount": 2.7, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 28.2, "unit": "g"},
+      "fiber": {"amount": 0.4, "unit": "g"},
+      "iron": {"amount": 0.2, "unit": "mg"},
+      "magnesium": {"amount": 12, "unit": "mg"},
+      "folate": {"amount": 58, "unit": "mcg_DFE"},
+      "manganese": {"amount": 0.5, "unit": "mg"},
+      "selenium": {"amount": 7.5, "unit": "mcg"}
+    },
+    "culturalTags": ["general", "east-asian", "south-asian", "southeast-asian", "west-african", "caribbean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 169714,
+    "description": "Rice, brown, long-grain, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 123, "unit": "kcal"},
+      "protein": {"amount": 2.7, "unit": "g"},
+      "fat": {"amount": 1.0, "unit": "g"},
+      "carbohydrate": {"amount": 25.6, "unit": "g"},
+      "fiber": {"amount": 1.6, "unit": "g"},
+      "magnesium": {"amount": 39, "unit": "mg"},
+      "manganese": {"amount": 0.9, "unit": "mg"},
+      "selenium": {"amount": 5.8, "unit": "mcg"},
+      "phosphorus": {"amount": 103, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 168875,
+    "description": "Oats, regular, cooked with water",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 68, "unit": "kcal"},
+      "protein": {"amount": 2.4, "unit": "g"},
+      "fat": {"amount": 1.4, "unit": "g"},
+      "carbohydrate": {"amount": 12.0, "unit": "g"},
+      "fiber": {"amount": 1.7, "unit": "g"},
+      "iron": {"amount": 0.9, "unit": "mg"},
+      "magnesium": {"amount": 27, "unit": "mg"},
+      "phosphorus": {"amount": 77, "unit": "mg"},
+      "zinc": {"amount": 0.6, "unit": "mg"},
+      "manganese": {"amount": 0.7, "unit": "mg"}
+    },
+    "culturalTags": ["general", "northern-european"],
+    "allergenTags": ["gluten"]
+  },
+  {
+    "fdcId": 168871,
+    "description": "Quinoa, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 120, "unit": "kcal"},
+      "protein": {"amount": 4.4, "unit": "g"},
+      "fat": {"amount": 1.9, "unit": "g"},
+      "carbohydrate": {"amount": 21.3, "unit": "g"},
+      "fiber": {"amount": 2.8, "unit": "g"},
+      "iron": {"amount": 1.5, "unit": "mg"},
+      "magnesium": {"amount": 64, "unit": "mg"},
+      "phosphorus": {"amount": 152, "unit": "mg"},
+      "manganese": {"amount": 0.6, "unit": "mg"},
+      "folate": {"amount": 42, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["latin-american", "general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 168890,
+    "description": "Bread, whole-wheat",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 252, "unit": "kcal"},
+      "protein": {"amount": 12.5, "unit": "g"},
+      "fat": {"amount": 3.4, "unit": "g"},
+      "carbohydrate": {"amount": 42.7, "unit": "g"},
+      "fiber": {"amount": 6.0, "unit": "g"},
+      "iron": {"amount": 2.5, "unit": "mg"},
+      "magnesium": {"amount": 75, "unit": "mg"},
+      "selenium": {"amount": 40.3, "unit": "mcg"},
+      "manganese": {"amount": 2.2, "unit": "mg"},
+      "zinc": {"amount": 1.8, "unit": "mg"}
+    },
+    "culturalTags": ["general", "northern-european", "mediterranean"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 170393,
+    "description": "Tortilla, corn",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 218, "unit": "kcal"},
+      "protein": {"amount": 5.7, "unit": "g"},
+      "fat": {"amount": 2.8, "unit": "g"},
+      "carbohydrate": {"amount": 44.6, "unit": "g"},
+      "fiber": {"amount": 5.4, "unit": "g"},
+      "calcium": {"amount": 159, "unit": "mg"},
+      "iron": {"amount": 1.5, "unit": "mg"},
+      "magnesium": {"amount": 59, "unit": "mg"}
+    },
+    "culturalTags": ["latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170394,
+    "description": "Roti / Chapati, whole wheat",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 299, "unit": "kcal"},
+      "protein": {"amount": 9.8, "unit": "g"},
+      "fat": {"amount": 3.7, "unit": "g"},
+      "carbohydrate": {"amount": 55.7, "unit": "g"},
+      "fiber": {"amount": 4.9, "unit": "g"},
+      "iron": {"amount": 3.1, "unit": "mg"},
+      "magnesium": {"amount": 62, "unit": "mg"},
+      "phosphorus": {"amount": 184, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 170395,
+    "description": "Naan bread",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 290, "unit": "kcal"},
+      "protein": {"amount": 9.6, "unit": "g"},
+      "fat": {"amount": 5.7, "unit": "g"},
+      "carbohydrate": {"amount": 50.0, "unit": "g"},
+      "fiber": {"amount": 2.1, "unit": "g"},
+      "calcium": {"amount": 76, "unit": "mg"},
+      "iron": {"amount": 3.3, "unit": "mg"},
+      "sodium": {"amount": 536, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian", "middle-eastern"],
+    "allergenTags": ["gluten", "wheat", "dairy"]
+  },
+  {
+    "fdcId": 170396,
+    "description": "Injera (teff flatbread)",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 145, "unit": "kcal"},
+      "protein": {"amount": 5.4, "unit": "g"},
+      "fat": {"amount": 0.8, "unit": "g"},
+      "carbohydrate": {"amount": 29.5, "unit": "g"},
+      "fiber": {"amount": 1.8, "unit": "g"},
+      "iron": {"amount": 4.2, "unit": "mg"},
+      "calcium": {"amount": 49, "unit": "mg"},
+      "magnesium": {"amount": 35, "unit": "mg"}
+    },
+    "culturalTags": ["east-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170397,
+    "description": "Fufu (cassava and plantain)",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 160, "unit": "kcal"},
+      "protein": {"amount": 0.7, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 39.2, "unit": "g"},
+      "fiber": {"amount": 1.8, "unit": "g"},
+      "potassium": {"amount": 271, "unit": "mg"},
+      "vitamin_c": {"amount": 20.6, "unit": "mg"},
+      "manganese": {"amount": 0.4, "unit": "mg"}
+    },
+    "culturalTags": ["west-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170100,
+    "description": "Sweet potato, cooked, baked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 90, "unit": "kcal"},
+      "protein": {"amount": 2.0, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 20.7, "unit": "g"},
+      "fiber": {"amount": 3.3, "unit": "g"},
+      "vitamin_a": {"amount": 961, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 19.6, "unit": "mg"},
+      "potassium": {"amount": 475, "unit": "mg"},
+      "manganese": {"amount": 0.5, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.3, "unit": "mg"}
+    },
+    "culturalTags": ["general", "west-african", "caribbean", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170026,
+    "description": "Broccoli, cooked, boiled",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 35, "unit": "kcal"},
+      "protein": {"amount": 2.4, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 7.2, "unit": "g"},
+      "fiber": {"amount": 3.3, "unit": "g"},
+      "vitamin_c": {"amount": 64.9, "unit": "mg"},
+      "vitamin_k": {"amount": 141.1, "unit": "mcg"},
+      "folate": {"amount": 108, "unit": "mcg_DFE"},
+      "vitamin_a": {"amount": 77, "unit": "mcg_RAE"},
+      "potassium": {"amount": 293, "unit": "mg"},
+      "calcium": {"amount": 40, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170027,
+    "description": "Spinach, cooked, boiled",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 23, "unit": "kcal"},
+      "protein": {"amount": 2.97, "unit": "g"},
+      "fat": {"amount": 0.26, "unit": "g"},
+      "carbohydrate": {"amount": 3.75, "unit": "g"},
+      "fiber": {"amount": 2.4, "unit": "g"},
+      "vitamin_a": {"amount": 524, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 9.8, "unit": "mg"},
+      "vitamin_k": {"amount": 493.6, "unit": "mcg"},
+      "folate": {"amount": 146, "unit": "mcg_DFE"},
+      "iron": {"amount": 3.6, "unit": "mg"},
+      "magnesium": {"amount": 87, "unit": "mg"},
+      "potassium": {"amount": 466, "unit": "mg"},
+      "calcium": {"amount": 136, "unit": "mg"},
+      "manganese": {"amount": 0.9, "unit": "mg"}
+    },
+    "culturalTags": ["general", "mediterranean", "south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170028,
+    "description": "Kale, cooked, boiled",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 28, "unit": "kcal"},
+      "protein": {"amount": 1.9, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 5.6, "unit": "g"},
+      "fiber": {"amount": 2.0, "unit": "g"},
+      "vitamin_a": {"amount": 681, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 41.0, "unit": "mg"},
+      "vitamin_k": {"amount": 817.0, "unit": "mcg"},
+      "calcium": {"amount": 72, "unit": "mg"},
+      "manganese": {"amount": 0.4, "unit": "mg"}
+    },
+    "culturalTags": ["general", "west-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170029,
+    "description": "Tomatoes, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 18, "unit": "kcal"},
+      "protein": {"amount": 0.9, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 3.9, "unit": "g"},
+      "fiber": {"amount": 1.2, "unit": "g"},
+      "vitamin_c": {"amount": 13.7, "unit": "mg"},
+      "vitamin_a": {"amount": 42, "unit": "mcg_RAE"},
+      "potassium": {"amount": 237, "unit": "mg"}
+    },
+    "culturalTags": ["general", "mediterranean", "latin-american", "south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170030,
+    "description": "Bell pepper, red, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 31, "unit": "kcal"},
+      "protein": {"amount": 1.0, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 6.0, "unit": "g"},
+      "fiber": {"amount": 2.1, "unit": "g"},
+      "vitamin_c": {"amount": 127.7, "unit": "mg"},
+      "vitamin_a": {"amount": 157, "unit": "mcg_RAE"},
+      "vitamin_b6": {"amount": 0.3, "unit": "mg"}
+    },
+    "culturalTags": ["general", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170031,
+    "description": "Avocado, raw",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 160, "unit": "kcal"},
+      "protein": {"amount": 2.0, "unit": "g"},
+      "fat": {"amount": 14.7, "unit": "g"},
+      "carbohydrate": {"amount": 8.5, "unit": "g"},
+      "fiber": {"amount": 6.7, "unit": "g"},
+      "potassium": {"amount": 485, "unit": "mg"},
+      "vitamin_k": {"amount": 21, "unit": "mcg"},
+      "folate": {"amount": 81, "unit": "mcg_DFE"},
+      "vitamin_c": {"amount": 10.0, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.3, "unit": "mg"},
+      "magnesium": {"amount": 29, "unit": "mg"}
+    },
+    "culturalTags": ["latin-american", "general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170032,
+    "description": "Banana, raw",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 89, "unit": "kcal"},
+      "protein": {"amount": 1.1, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 22.8, "unit": "g"},
+      "fiber": {"amount": 2.6, "unit": "g"},
+      "potassium": {"amount": 358, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.4, "unit": "mg"},
+      "vitamin_c": {"amount": 8.7, "unit": "mg"},
+      "manganese": {"amount": 0.3, "unit": "mg"},
+      "magnesium": {"amount": 27, "unit": "mg"}
+    },
+    "culturalTags": ["general", "caribbean", "southeast-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170033,
+    "description": "Blueberries, raw",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 57, "unit": "kcal"},
+      "protein": {"amount": 0.7, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 14.5, "unit": "g"},
+      "fiber": {"amount": 2.4, "unit": "g"},
+      "vitamin_c": {"amount": 9.7, "unit": "mg"},
+      "vitamin_k": {"amount": 19.3, "unit": "mcg"},
+      "manganese": {"amount": 0.3, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170034,
+    "description": "Apple, raw, with skin",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 52, "unit": "kcal"},
+      "protein": {"amount": 0.3, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 13.8, "unit": "g"},
+      "fiber": {"amount": 2.4, "unit": "g"},
+      "vitamin_c": {"amount": 4.6, "unit": "mg"},
+      "potassium": {"amount": 107, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170035,
+    "description": "Mango, raw",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 60, "unit": "kcal"},
+      "protein": {"amount": 0.8, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 15.0, "unit": "g"},
+      "fiber": {"amount": 1.6, "unit": "g"},
+      "vitamin_a": {"amount": 54, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 36.4, "unit": "mg"},
+      "folate": {"amount": 43, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["south-asian", "southeast-asian", "caribbean", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170036,
+    "description": "Papaya, raw",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 43, "unit": "kcal"},
+      "protein": {"amount": 0.5, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 10.8, "unit": "g"},
+      "fiber": {"amount": 1.7, "unit": "g"},
+      "vitamin_c": {"amount": 60.9, "unit": "mg"},
+      "vitamin_a": {"amount": 47, "unit": "mcg_RAE"},
+      "folate": {"amount": 37, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["caribbean", "southeast-asian", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 171411,
+    "description": "Greek yogurt, plain, nonfat",
+    "foodCategory": "Dairy",
+    "nutrients": {
+      "energy": {"amount": 59, "unit": "kcal"},
+      "protein": {"amount": 10.2, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 3.6, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 110, "unit": "mg"},
+      "vitamin_b12": {"amount": 0.8, "unit": "mcg"},
+      "phosphorus": {"amount": 135, "unit": "mg"},
+      "potassium": {"amount": 141, "unit": "mg"},
+      "selenium": {"amount": 9.7, "unit": "mcg"},
+      "riboflavin": {"amount": 0.3, "unit": "mg"}
+    },
+    "culturalTags": ["general", "mediterranean"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 171413,
+    "description": "Milk, whole, 3.25% fat",
+    "foodCategory": "Dairy",
+    "nutrients": {
+      "energy": {"amount": 61, "unit": "kcal"},
+      "protein": {"amount": 3.2, "unit": "g"},
+      "fat": {"amount": 3.3, "unit": "g"},
+      "carbohydrate": {"amount": 4.8, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 113, "unit": "mg"},
+      "vitamin_d": {"amount": 1.3, "unit": "mcg"},
+      "vitamin_b12": {"amount": 0.4, "unit": "mcg"},
+      "phosphorus": {"amount": 84, "unit": "mg"},
+      "potassium": {"amount": 132, "unit": "mg"},
+      "riboflavin": {"amount": 0.2, "unit": "mg"}
+    },
+    "culturalTags": ["general", "northern-european", "south-asian"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 171414,
+    "description": "Paneer (Indian cottage cheese)",
+    "foodCategory": "Dairy",
+    "nutrients": {
+      "energy": {"amount": 265, "unit": "kcal"},
+      "protein": {"amount": 18.3, "unit": "g"},
+      "fat": {"amount": 20.8, "unit": "g"},
+      "carbohydrate": {"amount": 1.2, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 480, "unit": "mg"},
+      "phosphorus": {"amount": 328, "unit": "mg"},
+      "selenium": {"amount": 14.5, "unit": "mcg"}
+    },
+    "culturalTags": ["south-asian"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 172430,
+    "description": "Olive oil",
+    "foodCategory": "Fats and Oils",
+    "nutrients": {
+      "energy": {"amount": 884, "unit": "kcal"},
+      "protein": {"amount": 0.0, "unit": "g"},
+      "fat": {"amount": 100.0, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "vitamin_e": {"amount": 14.4, "unit": "mg"},
+      "vitamin_k": {"amount": 60.2, "unit": "mcg"}
+    },
+    "culturalTags": ["mediterranean", "middle-eastern", "general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 172431,
+    "description": "Coconut oil",
+    "foodCategory": "Fats and Oils",
+    "nutrients": {
+      "energy": {"amount": 862, "unit": "kcal"},
+      "protein": {"amount": 0.0, "unit": "g"},
+      "fat": {"amount": 100.0, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "vitamin_e": {"amount": 0.1, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian", "southeast-asian", "caribbean"],
+    "allergenTags": ["tree-nuts"]
+  },
+  {
+    "fdcId": 172432,
+    "description": "Ghee (clarified butter)",
+    "foodCategory": "Fats and Oils",
+    "nutrients": {
+      "energy": {"amount": 900, "unit": "kcal"},
+      "protein": {"amount": 0.0, "unit": "g"},
+      "fat": {"amount": 100.0, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "vitamin_a": {"amount": 840, "unit": "mcg_RAE"},
+      "vitamin_e": {"amount": 2.8, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian", "middle-eastern"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 170567,
+    "description": "Almonds, raw",
+    "foodCategory": "Nuts and Seeds",
+    "nutrients": {
+      "energy": {"amount": 579, "unit": "kcal"},
+      "protein": {"amount": 21.2, "unit": "g"},
+      "fat": {"amount": 49.9, "unit": "g"},
+      "carbohydrate": {"amount": 21.6, "unit": "g"},
+      "fiber": {"amount": 12.5, "unit": "g"},
+      "vitamin_e": {"amount": 25.6, "unit": "mg"},
+      "magnesium": {"amount": 270, "unit": "mg"},
+      "calcium": {"amount": 269, "unit": "mg"},
+      "iron": {"amount": 3.7, "unit": "mg"},
+      "manganese": {"amount": 2.2, "unit": "mg"},
+      "phosphorus": {"amount": 481, "unit": "mg"},
+      "zinc": {"amount": 3.1, "unit": "mg"}
+    },
+    "culturalTags": ["general", "south-asian", "middle-eastern", "mediterranean"],
+    "allergenTags": ["tree-nuts"]
+  },
+  {
+    "fdcId": 170568,
+    "description": "Walnuts, raw",
+    "foodCategory": "Nuts and Seeds",
+    "nutrients": {
+      "energy": {"amount": 654, "unit": "kcal"},
+      "protein": {"amount": 15.2, "unit": "g"},
+      "fat": {"amount": 65.2, "unit": "g"},
+      "carbohydrate": {"amount": 13.7, "unit": "g"},
+      "fiber": {"amount": 6.7, "unit": "g"},
+      "magnesium": {"amount": 158, "unit": "mg"},
+      "phosphorus": {"amount": 346, "unit": "mg"},
+      "manganese": {"amount": 3.4, "unit": "mg"},
+      "copper": {"amount": 1.6, "unit": "mg"}
+    },
+    "culturalTags": ["general", "middle-eastern"],
+    "allergenTags": ["tree-nuts"]
+  },
+  {
+    "fdcId": 170569,
+    "description": "Chia seeds",
+    "foodCategory": "Nuts and Seeds",
+    "nutrients": {
+      "energy": {"amount": 486, "unit": "kcal"},
+      "protein": {"amount": 16.5, "unit": "g"},
+      "fat": {"amount": 30.7, "unit": "g"},
+      "carbohydrate": {"amount": 42.1, "unit": "g"},
+      "fiber": {"amount": 34.4, "unit": "g"},
+      "calcium": {"amount": 631, "unit": "mg"},
+      "iron": {"amount": 7.7, "unit": "mg"},
+      "magnesium": {"amount": 335, "unit": "mg"},
+      "phosphorus": {"amount": 860, "unit": "mg"},
+      "zinc": {"amount": 4.6, "unit": "mg"},
+      "manganese": {"amount": 2.7, "unit": "mg"}
+    },
+    "culturalTags": ["latin-american", "general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170570,
+    "description": "Peanuts, raw",
+    "foodCategory": "Nuts and Seeds",
+    "nutrients": {
+      "energy": {"amount": 567, "unit": "kcal"},
+      "protein": {"amount": 25.8, "unit": "g"},
+      "fat": {"amount": 49.2, "unit": "g"},
+      "carbohydrate": {"amount": 16.1, "unit": "g"},
+      "fiber": {"amount": 8.5, "unit": "g"},
+      "niacin": {"amount": 12.1, "unit": "mg"},
+      "folate": {"amount": 240, "unit": "mcg_DFE"},
+      "magnesium": {"amount": 168, "unit": "mg"},
+      "phosphorus": {"amount": 376, "unit": "mg"},
+      "manganese": {"amount": 1.9, "unit": "mg"}
+    },
+    "culturalTags": ["general", "west-african", "southeast-asian"],
+    "allergenTags": ["peanuts"]
+  },
+  {
+    "fdcId": 170200,
+    "description": "Potato, baked, with skin",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 93, "unit": "kcal"},
+      "protein": {"amount": 2.5, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 21.2, "unit": "g"},
+      "fiber": {"amount": 2.2, "unit": "g"},
+      "vitamin_c": {"amount": 9.6, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.3, "unit": "mg"},
+      "potassium": {"amount": 535, "unit": "mg"},
+      "manganese": {"amount": 0.2, "unit": "mg"},
+      "niacin": {"amount": 1.4, "unit": "mg"}
+    },
+    "culturalTags": ["general", "northern-european", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170201,
+    "description": "Plantain, cooked",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 116, "unit": "kcal"},
+      "protein": {"amount": 0.8, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 31.2, "unit": "g"},
+      "fiber": {"amount": 2.3, "unit": "g"},
+      "vitamin_a": {"amount": 56, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 10.9, "unit": "mg"},
+      "potassium": {"amount": 465, "unit": "mg"},
+      "magnesium": {"amount": 32, "unit": "mg"}
+    },
+    "culturalTags": ["west-african", "caribbean", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 172200,
+    "description": "Shrimp, cooked",
+    "foodCategory": "Shellfish",
+    "nutrients": {
+      "energy": {"amount": 99, "unit": "kcal"},
+      "protein": {"amount": 24.0, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 0.2, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "selenium": {"amount": 39.6, "unit": "mcg"},
+      "vitamin_b12": {"amount": 1.1, "unit": "mcg"},
+      "phosphorus": {"amount": 214, "unit": "mg"},
+      "zinc": {"amount": 1.6, "unit": "mg"},
+      "niacin": {"amount": 2.6, "unit": "mg"},
+      "iron": {"amount": 0.5, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian", "southeast-asian", "mediterranean", "caribbean"],
+    "allergenTags": ["shellfish"]
+  },
+  {
+    "fdcId": 170300,
+    "description": "Turkey breast, cooked",
+    "foodCategory": "Poultry",
+    "nutrients": {
+      "energy": {"amount": 135, "unit": "kcal"},
+      "protein": {"amount": 30.1, "unit": "g"},
+      "fat": {"amount": 0.7, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "selenium": {"amount": 32.1, "unit": "mcg"},
+      "niacin": {"amount": 11.8, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.8, "unit": "mg"},
+      "phosphorus": {"amount": 230, "unit": "mg"},
+      "zinc": {"amount": 1.5, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170400,
+    "description": "Lamb, leg, cooked",
+    "foodCategory": "Meat",
+    "nutrients": {
+      "energy": {"amount": 258, "unit": "kcal"},
+      "protein": {"amount": 25.5, "unit": "g"},
+      "fat": {"amount": 16.5, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "vitamin_b12": {"amount": 2.6, "unit": "mcg"},
+      "zinc": {"amount": 4.5, "unit": "mg"},
+      "iron": {"amount": 1.9, "unit": "mg"},
+      "niacin": {"amount": 6.1, "unit": "mg"},
+      "selenium": {"amount": 26.4, "unit": "mcg"}
+    },
+    "culturalTags": ["middle-eastern", "south-asian", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 170500,
+    "description": "Tilapia, cooked",
+    "foodCategory": "Fish",
+    "nutrients": {
+      "energy": {"amount": 128, "unit": "kcal"},
+      "protein": {"amount": 26.2, "unit": "g"},
+      "fat": {"amount": 2.6, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "selenium": {"amount": 54.4, "unit": "mcg"},
+      "vitamin_b12": {"amount": 1.6, "unit": "mcg"},
+      "niacin": {"amount": 4.7, "unit": "mg"},
+      "phosphorus": {"amount": 204, "unit": "mg"}
+    },
+    "culturalTags": ["west-african", "east-african", "latin-american", "general"],
+    "allergenTags": ["fish"]
+  },
+  {
+    "fdcId": 170600,
+    "description": "Tuna, canned in water",
+    "foodCategory": "Fish",
+    "nutrients": {
+      "energy": {"amount": 116, "unit": "kcal"},
+      "protein": {"amount": 25.5, "unit": "g"},
+      "fat": {"amount": 0.8, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "selenium": {"amount": 90.6, "unit": "mcg"},
+      "niacin": {"amount": 13.3, "unit": "mg"},
+      "vitamin_b12": {"amount": 2.2, "unit": "mcg"},
+      "vitamin_d": {"amount": 2.7, "unit": "mcg"}
+    },
+    "culturalTags": ["general", "east-asian", "mediterranean"],
+    "allergenTags": ["fish"]
+  },
+  {
+    "fdcId": 170700,
+    "description": "Tempeh",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 192, "unit": "kcal"},
+      "protein": {"amount": 20.3, "unit": "g"},
+      "fat": {"amount": 10.8, "unit": "g"},
+      "carbohydrate": {"amount": 7.6, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 111, "unit": "mg"},
+      "iron": {"amount": 2.7, "unit": "mg"},
+      "magnesium": {"amount": 81, "unit": "mg"},
+      "manganese": {"amount": 1.3, "unit": "mg"}
+    },
+    "culturalTags": ["southeast-asian"],
+    "allergenTags": ["soy"]
+  },
+  {
+    "fdcId": 170800,
+    "description": "Edamame, cooked",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 121, "unit": "kcal"},
+      "protein": {"amount": 11.9, "unit": "g"},
+      "fat": {"amount": 5.2, "unit": "g"},
+      "carbohydrate": {"amount": 8.9, "unit": "g"},
+      "fiber": {"amount": 5.2, "unit": "g"},
+      "vitamin_k": {"amount": 26.7, "unit": "mcg"},
+      "folate": {"amount": 311, "unit": "mcg_DFE"},
+      "iron": {"amount": 2.3, "unit": "mg"},
+      "manganese": {"amount": 1.0, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian"],
+    "allergenTags": ["soy"]
+  },
+  {
+    "fdcId": 170900,
+    "description": "Cottage cheese, low-fat (2%)",
+    "foodCategory": "Dairy",
+    "nutrients": {
+      "energy": {"amount": 84, "unit": "kcal"},
+      "protein": {"amount": 11.8, "unit": "g"},
+      "fat": {"amount": 2.3, "unit": "g"},
+      "carbohydrate": {"amount": 4.3, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 103, "unit": "mg"},
+      "phosphorus": {"amount": 162, "unit": "mg"},
+      "selenium": {"amount": 11.2, "unit": "mcg"},
+      "vitamin_b12": {"amount": 0.6, "unit": "mcg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 171000,
+    "description": "Cucumber, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 15, "unit": "kcal"},
+      "protein": {"amount": 0.7, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 3.6, "unit": "g"},
+      "fiber": {"amount": 0.5, "unit": "g"},
+      "vitamin_k": {"amount": 16.4, "unit": "mcg"},
+      "vitamin_c": {"amount": 2.8, "unit": "mg"},
+      "potassium": {"amount": 147, "unit": "mg"}
+    },
+    "culturalTags": ["general", "middle-eastern", "south-asian", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 171100,
+    "description": "Carrot, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 41, "unit": "kcal"},
+      "protein": {"amount": 0.9, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 9.6, "unit": "g"},
+      "fiber": {"amount": 2.8, "unit": "g"},
+      "vitamin_a": {"amount": 835, "unit": "mcg_RAE"},
+      "vitamin_k": {"amount": 13.2, "unit": "mcg"},
+      "potassium": {"amount": 320, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 171200,
+    "description": "Onion, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 40, "unit": "kcal"},
+      "protein": {"amount": 1.1, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 9.3, "unit": "g"},
+      "fiber": {"amount": 1.7, "unit": "g"},
+      "vitamin_c": {"amount": 7.4, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.1, "unit": "mg"},
+      "folate": {"amount": 19, "unit": "mcg_DFE"},
+      "potassium": {"amount": 146, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 171300,
+    "description": "Garlic, raw",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 149, "unit": "kcal"},
+      "protein": {"amount": 6.4, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 33.1, "unit": "g"},
+      "fiber": {"amount": 2.1, "unit": "g"},
+      "vitamin_c": {"amount": 31.2, "unit": "mg"},
+      "vitamin_b6": {"amount": 1.2, "unit": "mg"},
+      "manganese": {"amount": 1.7, "unit": "mg"},
+      "selenium": {"amount": 14.2, "unit": "mcg"}
+    },
+    "culturalTags": ["general", "mediterranean", "south-asian", "east-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 171500,
+    "description": "Salmon, smoked (lox)",
+    "foodCategory": "Fish",
+    "nutrients": {
+      "energy": {"amount": 117, "unit": "kcal"},
+      "protein": {"amount": 18.3, "unit": "g"},
+      "fat": {"amount": 4.3, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "sodium": {"amount": 2000, "unit": "mg"},
+      "vitamin_b12": {"amount": 3.3, "unit": "mcg"},
+      "selenium": {"amount": 32.4, "unit": "mcg"},
+      "niacin": {"amount": 4.7, "unit": "mg"}
+    },
+    "culturalTags": ["northern-european"],
+    "allergenTags": ["fish"]
+  },
+  {
+    "fdcId": 171600,
+    "description": "Sardines, canned in oil",
+    "foodCategory": "Fish",
+    "nutrients": {
+      "energy": {"amount": 208, "unit": "kcal"},
+      "protein": {"amount": 24.6, "unit": "g"},
+      "fat": {"amount": 11.5, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 382, "unit": "mg"},
+      "vitamin_d": {"amount": 4.8, "unit": "mcg"},
+      "vitamin_b12": {"amount": 8.9, "unit": "mcg"},
+      "selenium": {"amount": 52.7, "unit": "mcg"},
+      "phosphorus": {"amount": 490, "unit": "mg"},
+      "iron": {"amount": 2.9, "unit": "mg"}
+    },
+    "culturalTags": ["mediterranean", "general"],
+    "allergenTags": ["fish"]
+  },
+  {
+    "fdcId": 172100,
+    "description": "Coconut milk, canned",
+    "foodCategory": "Dairy Alternatives",
+    "nutrients": {
+      "energy": {"amount": 197, "unit": "kcal"},
+      "protein": {"amount": 2.0, "unit": "g"},
+      "fat": {"amount": 21.3, "unit": "g"},
+      "carbohydrate": {"amount": 2.8, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "iron": {"amount": 3.3, "unit": "mg"},
+      "magnesium": {"amount": 46, "unit": "mg"},
+      "manganese": {"amount": 0.9, "unit": "mg"}
+    },
+    "culturalTags": ["southeast-asian", "south-asian", "caribbean"],
+    "allergenTags": ["tree-nuts"]
+  },
+  {
+    "fdcId": 172300,
+    "description": "Hummus",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 166, "unit": "kcal"},
+      "protein": {"amount": 7.9, "unit": "g"},
+      "fat": {"amount": 9.6, "unit": "g"},
+      "carbohydrate": {"amount": 14.3, "unit": "g"},
+      "fiber": {"amount": 6.0, "unit": "g"},
+      "iron": {"amount": 2.4, "unit": "mg"},
+      "folate": {"amount": 83, "unit": "mcg_DFE"},
+      "vitamin_b6": {"amount": 0.2, "unit": "mg"},
+      "manganese": {"amount": 0.6, "unit": "mg"}
+    },
+    "culturalTags": ["middle-eastern", "mediterranean"],
+    "allergenTags": ["sesame"]
+  },
+  {
+    "fdcId": 172400,
+    "description": "Tahini (sesame paste)",
+    "foodCategory": "Nuts and Seeds",
+    "nutrients": {
+      "energy": {"amount": 595, "unit": "kcal"},
+      "protein": {"amount": 17.0, "unit": "g"},
+      "fat": {"amount": 53.8, "unit": "g"},
+      "carbohydrate": {"amount": 21.2, "unit": "g"},
+      "fiber": {"amount": 9.3, "unit": "g"},
+      "calcium": {"amount": 426, "unit": "mg"},
+      "iron": {"amount": 8.9, "unit": "mg"},
+      "magnesium": {"amount": 95, "unit": "mg"},
+      "zinc": {"amount": 4.6, "unit": "mg"},
+      "phosphorus": {"amount": 732, "unit": "mg"}
+    },
+    "culturalTags": ["middle-eastern", "mediterranean"],
+    "allergenTags": ["sesame"]
+  },
+  {
+    "fdcId": 172500,
+    "description": "Kimchi",
+    "foodCategory": "Fermented Foods",
+    "nutrients": {
+      "energy": {"amount": 15, "unit": "kcal"},
+      "protein": {"amount": 1.1, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 2.4, "unit": "g"},
+      "fiber": {"amount": 1.6, "unit": "g"},
+      "vitamin_c": {"amount": 0.0, "unit": "mg"},
+      "vitamin_a": {"amount": 5, "unit": "mcg_RAE"},
+      "sodium": {"amount": 498, "unit": "mg"},
+      "vitamin_k": {"amount": 43.6, "unit": "mcg"}
+    },
+    "culturalTags": ["east-asian"],
+    "allergenTags": ["shellfish"]
+  },
+  {
+    "fdcId": 172600,
+    "description": "Miso paste",
+    "foodCategory": "Fermented Foods",
+    "nutrients": {
+      "energy": {"amount": 199, "unit": "kcal"},
+      "protein": {"amount": 11.7, "unit": "g"},
+      "fat": {"amount": 6.0, "unit": "g"},
+      "carbohydrate": {"amount": 26.5, "unit": "g"},
+      "fiber": {"amount": 5.4, "unit": "g"},
+      "sodium": {"amount": 3728, "unit": "mg"},
+      "zinc": {"amount": 2.6, "unit": "mg"},
+      "manganese": {"amount": 0.9, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian"],
+    "allergenTags": ["soy"]
+  },
+  {
+    "fdcId": 172700,
+    "description": "Soy sauce",
+    "foodCategory": "Condiments",
+    "nutrients": {
+      "energy": {"amount": 53, "unit": "kcal"},
+      "protein": {"amount": 8.1, "unit": "g"},
+      "fat": {"amount": 0.0, "unit": "g"},
+      "carbohydrate": {"amount": 4.9, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "sodium": {"amount": 5493, "unit": "mg"},
+      "iron": {"amount": 1.0, "unit": "mg"},
+      "manganese": {"amount": 0.5, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian", "southeast-asian"],
+    "allergenTags": ["soy", "wheat"]
+  },
+  {
+    "fdcId": 172800,
+    "description": "Dates, Medjool",
+    "foodCategory": "Fruits",
+    "nutrients": {
+      "energy": {"amount": 277, "unit": "kcal"},
+      "protein": {"amount": 1.8, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 75.0, "unit": "g"},
+      "fiber": {"amount": 6.7, "unit": "g"},
+      "potassium": {"amount": 696, "unit": "mg"},
+      "magnesium": {"amount": 54, "unit": "mg"},
+      "copper": {"amount": 0.4, "unit": "mg"},
+      "manganese": {"amount": 0.3, "unit": "mg"}
+    },
+    "culturalTags": ["middle-eastern", "north-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 172900,
+    "description": "Couscous, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 112, "unit": "kcal"},
+      "protein": {"amount": 3.8, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 23.2, "unit": "g"},
+      "fiber": {"amount": 1.4, "unit": "g"},
+      "selenium": {"amount": 27.5, "unit": "mcg"},
+      "thiamin": {"amount": 0.1, "unit": "mg"},
+      "folate": {"amount": 15, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["middle-eastern", "north-african", "mediterranean"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 173000,
+    "description": "Bulgur, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 83, "unit": "kcal"},
+      "protein": {"amount": 3.1, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 18.6, "unit": "g"},
+      "fiber": {"amount": 4.5, "unit": "g"},
+      "manganese": {"amount": 0.6, "unit": "mg"},
+      "magnesium": {"amount": 32, "unit": "mg"},
+      "iron": {"amount": 1.0, "unit": "mg"},
+      "niacin": {"amount": 1.0, "unit": "mg"}
+    },
+    "culturalTags": ["middle-eastern", "mediterranean"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 173100,
+    "description": "Basmati rice, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 121, "unit": "kcal"},
+      "protein": {"amount": 3.5, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 25.2, "unit": "g"},
+      "fiber": {"amount": 0.4, "unit": "g"},
+      "iron": {"amount": 0.2, "unit": "mg"},
+      "selenium": {"amount": 7.5, "unit": "mcg"},
+      "folate": {"amount": 58, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["south-asian", "middle-eastern"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173200,
+    "description": "Dal (pigeon peas / toor dal), cooked",
+    "foodCategory": "Legumes",
+    "nutrients": {
+      "energy": {"amount": 121, "unit": "kcal"},
+      "protein": {"amount": 6.8, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 23.3, "unit": "g"},
+      "fiber": {"amount": 6.7, "unit": "g"},
+      "folate": {"amount": 111, "unit": "mcg_DFE"},
+      "iron": {"amount": 1.1, "unit": "mg"},
+      "magnesium": {"amount": 36, "unit": "mg"},
+      "potassium": {"amount": 384, "unit": "mg"},
+      "thiamin": {"amount": 0.2, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173300,
+    "description": "Okra, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 22, "unit": "kcal"},
+      "protein": {"amount": 1.9, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 4.5, "unit": "g"},
+      "fiber": {"amount": 2.5, "unit": "g"},
+      "vitamin_c": {"amount": 16.3, "unit": "mg"},
+      "vitamin_k": {"amount": 40.0, "unit": "mcg"},
+      "folate": {"amount": 46, "unit": "mcg_DFE"},
+      "magnesium": {"amount": 36, "unit": "mg"}
+    },
+    "culturalTags": ["west-african", "south-asian", "caribbean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173400,
+    "description": "Cassava (yuca), cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 160, "unit": "kcal"},
+      "protein": {"amount": 1.4, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 38.1, "unit": "g"},
+      "fiber": {"amount": 1.8, "unit": "g"},
+      "vitamin_c": {"amount": 20.6, "unit": "mg"},
+      "potassium": {"amount": 271, "unit": "mg"},
+      "manganese": {"amount": 0.4, "unit": "mg"},
+      "thiamin": {"amount": 0.1, "unit": "mg"}
+    },
+    "culturalTags": ["west-african", "east-african", "latin-american", "caribbean", "southeast-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173500,
+    "description": "Teff grain, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 101, "unit": "kcal"},
+      "protein": {"amount": 3.9, "unit": "g"},
+      "fat": {"amount": 0.6, "unit": "g"},
+      "carbohydrate": {"amount": 19.9, "unit": "g"},
+      "fiber": {"amount": 2.8, "unit": "g"},
+      "iron": {"amount": 2.1, "unit": "mg"},
+      "calcium": {"amount": 49, "unit": "mg"},
+      "magnesium": {"amount": 50, "unit": "mg"},
+      "manganese": {"amount": 1.2, "unit": "mg"},
+      "zinc": {"amount": 1.1, "unit": "mg"}
+    },
+    "culturalTags": ["east-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173600,
+    "description": "Feta cheese",
+    "foodCategory": "Dairy",
+    "nutrients": {
+      "energy": {"amount": 264, "unit": "kcal"},
+      "protein": {"amount": 14.2, "unit": "g"},
+      "fat": {"amount": 21.3, "unit": "g"},
+      "carbohydrate": {"amount": 4.1, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 493, "unit": "mg"},
+      "sodium": {"amount": 917, "unit": "mg"},
+      "phosphorus": {"amount": 337, "unit": "mg"},
+      "vitamin_b12": {"amount": 1.7, "unit": "mcg"},
+      "riboflavin": {"amount": 0.8, "unit": "mg"}
+    },
+    "culturalTags": ["mediterranean", "middle-eastern"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 173700,
+    "description": "Cauliflower, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 23, "unit": "kcal"},
+      "protein": {"amount": 1.8, "unit": "g"},
+      "fat": {"amount": 0.4, "unit": "g"},
+      "carbohydrate": {"amount": 4.1, "unit": "g"},
+      "fiber": {"amount": 2.3, "unit": "g"},
+      "vitamin_c": {"amount": 44.3, "unit": "mg"},
+      "vitamin_k": {"amount": 13.8, "unit": "mcg"},
+      "folate": {"amount": 44, "unit": "mcg_DFE"},
+      "vitamin_b6": {"amount": 0.2, "unit": "mg"}
+    },
+    "culturalTags": ["general", "south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173800,
+    "description": "Zucchini, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 17, "unit": "kcal"},
+      "protein": {"amount": 1.2, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 3.1, "unit": "g"},
+      "fiber": {"amount": 1.0, "unit": "g"},
+      "vitamin_c": {"amount": 12.9, "unit": "mg"},
+      "potassium": {"amount": 264, "unit": "mg"},
+      "manganese": {"amount": 0.2, "unit": "mg"}
+    },
+    "culturalTags": ["general", "mediterranean"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 173900,
+    "description": "Green beans, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 35, "unit": "kcal"},
+      "protein": {"amount": 1.9, "unit": "g"},
+      "fat": {"amount": 0.3, "unit": "g"},
+      "carbohydrate": {"amount": 7.9, "unit": "g"},
+      "fiber": {"amount": 3.4, "unit": "g"},
+      "vitamin_c": {"amount": 9.7, "unit": "mg"},
+      "vitamin_k": {"amount": 47.9, "unit": "mcg"},
+      "folate": {"amount": 33, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174000,
+    "description": "Pork tenderloin, cooked",
+    "foodCategory": "Meat",
+    "nutrients": {
+      "energy": {"amount": 143, "unit": "kcal"},
+      "protein": {"amount": 26.2, "unit": "g"},
+      "fat": {"amount": 3.5, "unit": "g"},
+      "carbohydrate": {"amount": 0.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "thiamin": {"amount": 0.8, "unit": "mg"},
+      "selenium": {"amount": 41.4, "unit": "mcg"},
+      "niacin": {"amount": 7.2, "unit": "mg"},
+      "vitamin_b6": {"amount": 0.7, "unit": "mg"},
+      "phosphorus": {"amount": 252, "unit": "mg"},
+      "zinc": {"amount": 2.0, "unit": "mg"}
+    },
+    "culturalTags": ["general", "east-asian", "latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174100,
+    "description": "Whey protein powder",
+    "foodCategory": "Supplements",
+    "nutrients": {
+      "energy": {"amount": 380, "unit": "kcal"},
+      "protein": {"amount": 75.0, "unit": "g"},
+      "fat": {"amount": 5.0, "unit": "g"},
+      "carbohydrate": {"amount": 10.0, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "calcium": {"amount": 500, "unit": "mg"},
+      "sodium": {"amount": 200, "unit": "mg"}
+    },
+    "culturalTags": ["general"],
+    "allergenTags": ["dairy"]
+  },
+  {
+    "fdcId": 174200,
+    "description": "Rice noodles, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 109, "unit": "kcal"},
+      "protein": {"amount": 0.9, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 24.9, "unit": "g"},
+      "fiber": {"amount": 1.0, "unit": "g"},
+      "selenium": {"amount": 3.9, "unit": "mcg"},
+      "sodium": {"amount": 182, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian", "southeast-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174300,
+    "description": "Soba noodles (buckwheat), cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 99, "unit": "kcal"},
+      "protein": {"amount": 5.1, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 21.4, "unit": "g"},
+      "fiber": {"amount": 0.0, "unit": "g"},
+      "manganese": {"amount": 0.4, "unit": "mg"},
+      "thiamin": {"amount": 0.1, "unit": "mg"}
+    },
+    "culturalTags": ["east-asian"],
+    "allergenTags": ["wheat"]
+  },
+  {
+    "fdcId": 174400,
+    "description": "Pasta, whole wheat, cooked",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 124, "unit": "kcal"},
+      "protein": {"amount": 5.3, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 26.5, "unit": "g"},
+      "fiber": {"amount": 3.9, "unit": "g"},
+      "manganese": {"amount": 1.0, "unit": "mg"},
+      "selenium": {"amount": 25.9, "unit": "mcg"},
+      "magnesium": {"amount": 30, "unit": "mg"}
+    },
+    "culturalTags": ["mediterranean", "general"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 174500,
+    "description": "Jollof rice base (tomato-based rice)",
+    "foodCategory": "Prepared Dishes",
+    "nutrients": {
+      "energy": {"amount": 150, "unit": "kcal"},
+      "protein": {"amount": 3.0, "unit": "g"},
+      "fat": {"amount": 3.5, "unit": "g"},
+      "carbohydrate": {"amount": 27.0, "unit": "g"},
+      "fiber": {"amount": 1.2, "unit": "g"},
+      "vitamin_a": {"amount": 40, "unit": "mcg_RAE"},
+      "vitamin_c": {"amount": 8.0, "unit": "mg"},
+      "iron": {"amount": 1.0, "unit": "mg"}
+    },
+    "culturalTags": ["west-african"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174600,
+    "description": "Dosa batter (rice and urad dal)",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 150, "unit": "kcal"},
+      "protein": {"amount": 4.5, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 31.0, "unit": "g"},
+      "fiber": {"amount": 1.5, "unit": "g"},
+      "iron": {"amount": 1.5, "unit": "mg"},
+      "calcium": {"amount": 15, "unit": "mg"}
+    },
+    "culturalTags": ["south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174700,
+    "description": "Arepas (corn cakes)",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 200, "unit": "kcal"},
+      "protein": {"amount": 4.0, "unit": "g"},
+      "fat": {"amount": 3.0, "unit": "g"},
+      "carbohydrate": {"amount": 40.0, "unit": "g"},
+      "fiber": {"amount": 3.0, "unit": "g"},
+      "iron": {"amount": 1.2, "unit": "mg"},
+      "calcium": {"amount": 130, "unit": "mg"}
+    },
+    "culturalTags": ["latin-american"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 174800,
+    "description": "Pita bread, whole wheat",
+    "foodCategory": "Grains",
+    "nutrients": {
+      "energy": {"amount": 266, "unit": "kcal"},
+      "protein": {"amount": 9.8, "unit": "g"},
+      "fat": {"amount": 1.7, "unit": "g"},
+      "carbohydrate": {"amount": 55.7, "unit": "g"},
+      "fiber": {"amount": 7.4, "unit": "g"},
+      "iron": {"amount": 2.6, "unit": "mg"},
+      "manganese": {"amount": 2.2, "unit": "mg"},
+      "selenium": {"amount": 50.0, "unit": "mcg"}
+    },
+    "culturalTags": ["middle-eastern", "mediterranean"],
+    "allergenTags": ["gluten", "wheat"]
+  },
+  {
+    "fdcId": 174900,
+    "description": "Eggplant, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 35, "unit": "kcal"},
+      "protein": {"amount": 0.8, "unit": "g"},
+      "fat": {"amount": 0.2, "unit": "g"},
+      "carbohydrate": {"amount": 8.7, "unit": "g"},
+      "fiber": {"amount": 2.5, "unit": "g"},
+      "manganese": {"amount": 0.1, "unit": "mg"},
+      "potassium": {"amount": 123, "unit": "mg"},
+      "folate": {"amount": 14, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["mediterranean", "middle-eastern", "south-asian"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 175000,
+    "description": "Cabbage, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 23, "unit": "kcal"},
+      "protein": {"amount": 1.3, "unit": "g"},
+      "fat": {"amount": 0.1, "unit": "g"},
+      "carbohydrate": {"amount": 5.5, "unit": "g"},
+      "fiber": {"amount": 2.0, "unit": "g"},
+      "vitamin_c": {"amount": 37.5, "unit": "mg"},
+      "vitamin_k": {"amount": 108.7, "unit": "mcg"},
+      "folate": {"amount": 30, "unit": "mcg_DFE"}
+    },
+    "culturalTags": ["general", "east-asian", "northern-european"],
+    "allergenTags": []
+  },
+  {
+    "fdcId": 175100,
+    "description": "Mushrooms, white, cooked",
+    "foodCategory": "Vegetables",
+    "nutrients": {
+      "energy": {"amount": 28, "unit": "kcal"},
+      "protein": {"amount": 2.2, "unit": "g"},
+      "fat": {"amount": 0.5, "unit": "g"},
+      "carbohydrate": {"amount": 5.3, "unit": "g"},
+      "fiber": {"amount": 2.2, "unit": "g"},
+      "selenium": {"amount": 16.6, "unit": "mcg"},
+      "niacin": {"amount": 4.5, "unit": "mg"},
+      "riboflavin": {"amount": 0.3, "unit": "mg"},
+      "copper": {"amount": 0.5, "unit": "mg"},
+      "potassium": {"amount": 356, "unit": "mg"}
+    },
+    "culturalTags": ["general", "east-asian"],
+    "allergenTags": []
+  }
+]

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Maven Wrapper script
+# Downloads maven if not present and runs it
+
+set -e
+
+MAVEN_PROJECTBASEDIR="${MAVEN_BASEDIR:-$(cd "$(dirname "$0")" && pwd)}"
+MAVEN_WRAPPER_PROPERTIES="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.properties"
+
+if [ -f "$MAVEN_WRAPPER_PROPERTIES" ]; then
+    MAVEN_DIST_URL=$(grep "distributionUrl" "$MAVEN_WRAPPER_PROPERTIES" | cut -d'=' -f2-)
+fi
+
+MAVEN_HOME="$HOME/.m2/wrapper/dists/apache-maven-3.9.6"
+
+if [ ! -f "$MAVEN_HOME/bin/mvn" ]; then
+    echo "Downloading Maven..."
+    mkdir -p "$MAVEN_HOME"
+    if command -v curl > /dev/null 2>&1; then
+        curl -fsSL "$MAVEN_DIST_URL" -o /tmp/maven.zip
+    elif command -v wget > /dev/null 2>&1; then
+        wget -q "$MAVEN_DIST_URL" -O /tmp/maven.zip
+    fi
+    unzip -qo /tmp/maven.zip -d "$HOME/.m2/wrapper/dists/"
+    rm -f /tmp/maven.zip
+fi
+
+exec "$MAVEN_HOME/bin/mvn" "$@"

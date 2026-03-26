@@ -1,0 +1,236 @@
+[
+  {
+    "category": "grain_staple",
+    "culture": "south-asian",
+    "foods": [
+      {"fdcId": 173100, "name": "Basmati rice", "typicalServingGrams": 200},
+      {"fdcId": 170394, "name": "Roti / Chapati", "typicalServingGrams": 60},
+      {"fdcId": 170395, "name": "Naan bread", "typicalServingGrams": 90},
+      {"fdcId": 174600, "name": "Dosa", "typicalServingGrams": 100}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "east-asian",
+    "foods": [
+      {"fdcId": 168880, "name": "White rice", "typicalServingGrams": 200},
+      {"fdcId": 174200, "name": "Rice noodles", "typicalServingGrams": 200},
+      {"fdcId": 174300, "name": "Soba noodles", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "latin-american",
+    "foods": [
+      {"fdcId": 168880, "name": "White rice", "typicalServingGrams": 200},
+      {"fdcId": 170393, "name": "Corn tortilla", "typicalServingGrams": 60},
+      {"fdcId": 174700, "name": "Arepas", "typicalServingGrams": 120},
+      {"fdcId": 168871, "name": "Quinoa", "typicalServingGrams": 185}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "west-african",
+    "foods": [
+      {"fdcId": 168880, "name": "White rice", "typicalServingGrams": 200},
+      {"fdcId": 170397, "name": "Fufu", "typicalServingGrams": 250},
+      {"fdcId": 174500, "name": "Jollof rice", "typicalServingGrams": 250}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "east-african",
+    "foods": [
+      {"fdcId": 170396, "name": "Injera", "typicalServingGrams": 150},
+      {"fdcId": 173500, "name": "Teff grain", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "mediterranean",
+    "foods": [
+      {"fdcId": 174400, "name": "Whole wheat pasta", "typicalServingGrams": 200},
+      {"fdcId": 168890, "name": "Whole-wheat bread", "typicalServingGrams": 60},
+      {"fdcId": 172900, "name": "Couscous", "typicalServingGrams": 200},
+      {"fdcId": 173000, "name": "Bulgur", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "middle-eastern",
+    "foods": [
+      {"fdcId": 174800, "name": "Whole wheat pita", "typicalServingGrams": 60},
+      {"fdcId": 173100, "name": "Basmati rice", "typicalServingGrams": 200},
+      {"fdcId": 172900, "name": "Couscous", "typicalServingGrams": 200},
+      {"fdcId": 173000, "name": "Bulgur", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "southeast-asian",
+    "foods": [
+      {"fdcId": 168880, "name": "White rice", "typicalServingGrams": 200},
+      {"fdcId": 174200, "name": "Rice noodles", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "caribbean",
+    "foods": [
+      {"fdcId": 168880, "name": "White rice", "typicalServingGrams": 200},
+      {"fdcId": 170201, "name": "Plantain", "typicalServingGrams": 150},
+      {"fdcId": 173400, "name": "Cassava", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "grain_staple",
+    "culture": "northern-european",
+    "foods": [
+      {"fdcId": 170200, "name": "Potato, baked", "typicalServingGrams": 200},
+      {"fdcId": 168890, "name": "Whole-wheat bread", "typicalServingGrams": 60},
+      {"fdcId": 168875, "name": "Oats", "typicalServingGrams": 250}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "south-asian",
+    "foods": [
+      {"fdcId": 173757, "name": "Lentils (dal)", "typicalServingGrams": 200},
+      {"fdcId": 173200, "name": "Pigeon peas (toor dal)", "typicalServingGrams": 200},
+      {"fdcId": 175215, "name": "Chickpeas", "typicalServingGrams": 200},
+      {"fdcId": 171414, "name": "Paneer", "typicalServingGrams": 100},
+      {"fdcId": 171705, "name": "Chicken breast", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "east-asian",
+    "foods": [
+      {"fdcId": 174608, "name": "Tofu", "typicalServingGrams": 150},
+      {"fdcId": 170800, "name": "Edamame", "typicalServingGrams": 150},
+      {"fdcId": 175167, "name": "Salmon", "typicalServingGrams": 150},
+      {"fdcId": 172200, "name": "Shrimp", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "latin-american",
+    "foods": [
+      {"fdcId": 169738, "name": "Black beans", "typicalServingGrams": 200},
+      {"fdcId": 171705, "name": "Chicken breast", "typicalServingGrams": 150},
+      {"fdcId": 170050, "name": "Ground beef", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "west-african",
+    "foods": [
+      {"fdcId": 170570, "name": "Peanuts (groundnuts)", "typicalServingGrams": 50},
+      {"fdcId": 170500, "name": "Tilapia", "typicalServingGrams": 150},
+      {"fdcId": 171705, "name": "Chicken breast", "typicalServingGrams": 150},
+      {"fdcId": 169738, "name": "Black-eyed peas", "typicalServingGrams": 200}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "mediterranean",
+    "foods": [
+      {"fdcId": 175215, "name": "Chickpeas", "typicalServingGrams": 200},
+      {"fdcId": 173757, "name": "Lentils", "typicalServingGrams": 200},
+      {"fdcId": 175167, "name": "Salmon", "typicalServingGrams": 150},
+      {"fdcId": 171600, "name": "Sardines", "typicalServingGrams": 100},
+      {"fdcId": 173600, "name": "Feta cheese", "typicalServingGrams": 50}
+    ]
+  },
+  {
+    "category": "protein_source",
+    "culture": "middle-eastern",
+    "foods": [
+      {"fdcId": 172300, "name": "Hummus", "typicalServingGrams": 100},
+      {"fdcId": 175215, "name": "Chickpeas", "typicalServingGrams": 200},
+      {"fdcId": 170400, "name": "Lamb", "typicalServingGrams": 150},
+      {"fdcId": 171705, "name": "Chicken breast", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "south-asian",
+    "foods": [
+      {"fdcId": 172432, "name": "Ghee", "typicalServingGrams": 15},
+      {"fdcId": 172431, "name": "Coconut oil", "typicalServingGrams": 15}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "mediterranean",
+    "foods": [
+      {"fdcId": 172430, "name": "Olive oil", "typicalServingGrams": 15}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "east-asian",
+    "foods": [
+      {"fdcId": 172430, "name": "Sesame oil", "typicalServingGrams": 10}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "southeast-asian",
+    "foods": [
+      {"fdcId": 172431, "name": "Coconut oil", "typicalServingGrams": 15}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "west-african",
+    "foods": [
+      {"fdcId": 172431, "name": "Palm oil / Coconut oil", "typicalServingGrams": 15}
+    ]
+  },
+  {
+    "category": "cooking_fat",
+    "culture": "caribbean",
+    "foods": [
+      {"fdcId": 172431, "name": "Coconut oil", "typicalServingGrams": 15}
+    ]
+  },
+  {
+    "category": "vegetable",
+    "culture": "south-asian",
+    "foods": [
+      {"fdcId": 170027, "name": "Spinach (palak)", "typicalServingGrams": 150},
+      {"fdcId": 173700, "name": "Cauliflower (gobi)", "typicalServingGrams": 150},
+      {"fdcId": 173300, "name": "Okra (bhindi)", "typicalServingGrams": 150},
+      {"fdcId": 174900, "name": "Eggplant (baingan)", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "vegetable",
+    "culture": "east-asian",
+    "foods": [
+      {"fdcId": 175000, "name": "Napa cabbage / Bok choy", "typicalServingGrams": 150},
+      {"fdcId": 175100, "name": "Shiitake mushrooms", "typicalServingGrams": 100},
+      {"fdcId": 170800, "name": "Edamame", "typicalServingGrams": 150}
+    ]
+  },
+  {
+    "category": "vegetable",
+    "culture": "mediterranean",
+    "foods": [
+      {"fdcId": 170029, "name": "Tomatoes", "typicalServingGrams": 150},
+      {"fdcId": 173800, "name": "Zucchini", "typicalServingGrams": 150},
+      {"fdcId": 174900, "name": "Eggplant", "typicalServingGrams": 150},
+      {"fdcId": 170030, "name": "Bell pepper", "typicalServingGrams": 120}
+    ]
+  },
+  {
+    "category": "vegetable",
+    "culture": "west-african",
+    "foods": [
+      {"fdcId": 173300, "name": "Okra", "typicalServingGrams": 150},
+      {"fdcId": 170027, "name": "Spinach (green leaf)", "typicalServingGrams": 150},
+      {"fdcId": 170029, "name": "Tomatoes", "typicalServingGrams": 150}
+    ]
+  }
+]

@@ -1,0 +1,210 @@
+{
+  "energy": {
+    "unit": "kcal",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 30, "rda": 2400, "ul": 0 },
+      { "sex": "male", "ageMin": 31, "ageMax": 50, "rda": 2200, "ul": 0 },
+      { "sex": "male", "ageMin": 51, "ageMax": 70, "rda": 2000, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 30, "rda": 2000, "ul": 0 },
+      { "sex": "female", "ageMin": 31, "ageMax": 50, "rda": 1800, "ul": 0 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 1600, "ul": 0 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 2800, "ul": 0 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 2200, "ul": 0 }
+    ]
+  },
+  "protein": {
+    "unit": "g",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 56, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 46, "ul": 0 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 52, "ul": 0 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 46, "ul": 0 }
+    ]
+  },
+  "fiber": {
+    "unit": "g",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 50, "rda": 38, "ul": 0 },
+      { "sex": "male", "ageMin": 51, "ageMax": 70, "rda": 30, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 50, "rda": 25, "ul": 0 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 21, "ul": 0 }
+    ]
+  },
+  "vitamin_a": {
+    "unit": "mcg_RAE",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 900, "ul": 3000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 700, "ul": 3000 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 900, "ul": 2800 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 700, "ul": 2800 }
+    ]
+  },
+  "vitamin_c": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 90, "ul": 2000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 75, "ul": 2000 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 75, "ul": 1800 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 65, "ul": 1800 }
+    ]
+  },
+  "vitamin_d": {
+    "unit": "mcg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 15, "ul": 100 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 15, "ul": 100 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 15, "ul": 100 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 15, "ul": 100 }
+    ]
+  },
+  "vitamin_e": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 15, "ul": 1000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 15, "ul": 1000 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 15, "ul": 800 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 15, "ul": 800 }
+    ]
+  },
+  "vitamin_k": {
+    "unit": "mcg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 120, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 90, "ul": 0 }
+    ]
+  },
+  "vitamin_b6": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 50, "rda": 1.3, "ul": 100 },
+      { "sex": "male", "ageMin": 51, "ageMax": 70, "rda": 1.7, "ul": 100 },
+      { "sex": "female", "ageMin": 19, "ageMax": 50, "rda": 1.3, "ul": 100 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 1.5, "ul": 100 }
+    ]
+  },
+  "vitamin_b12": {
+    "unit": "mcg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 2.4, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 2.4, "ul": 0 }
+    ]
+  },
+  "folate": {
+    "unit": "mcg_DFE",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 400, "ul": 1000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 400, "ul": 1000 }
+    ]
+  },
+  "thiamin": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 1.2, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 1.1, "ul": 0 }
+    ]
+  },
+  "riboflavin": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 1.3, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 1.1, "ul": 0 }
+    ]
+  },
+  "niacin": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 16, "ul": 35 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 14, "ul": 35 }
+    ]
+  },
+  "calcium": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 50, "rda": 1000, "ul": 2500 },
+      { "sex": "male", "ageMin": 51, "ageMax": 70, "rda": 1000, "ul": 2000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 50, "rda": 1000, "ul": 2500 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 1200, "ul": 2000 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 1300, "ul": 3000 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 1300, "ul": 3000 }
+    ]
+  },
+  "iron": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 8, "ul": 45 },
+      { "sex": "female", "ageMin": 19, "ageMax": 50, "rda": 18, "ul": 45 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 8, "ul": 45 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 11, "ul": 45 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 15, "ul": 45 }
+    ]
+  },
+  "magnesium": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 30, "rda": 400, "ul": 350 },
+      { "sex": "male", "ageMin": 31, "ageMax": 70, "rda": 420, "ul": 350 },
+      { "sex": "female", "ageMin": 19, "ageMax": 30, "rda": 310, "ul": 350 },
+      { "sex": "female", "ageMin": 31, "ageMax": 70, "rda": 320, "ul": 350 }
+    ]
+  },
+  "zinc": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 11, "ul": 40 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 8, "ul": 40 },
+      { "sex": "male", "ageMin": 14, "ageMax": 18, "rda": 11, "ul": 34 },
+      { "sex": "female", "ageMin": 14, "ageMax": 18, "rda": 9, "ul": 34 }
+    ]
+  },
+  "potassium": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 3400, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 2600, "ul": 0 }
+    ]
+  },
+  "sodium": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 1500, "ul": 2300 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 1500, "ul": 2300 }
+    ]
+  },
+  "phosphorus": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 700, "ul": 4000 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 700, "ul": 4000 }
+    ]
+  },
+  "selenium": {
+    "unit": "mcg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 55, "ul": 400 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 55, "ul": 400 }
+    ]
+  },
+  "copper": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 0.9, "ul": 10 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 0.9, "ul": 10 }
+    ]
+  },
+  "manganese": {
+    "unit": "mg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 70, "rda": 2.3, "ul": 11 },
+      { "sex": "female", "ageMin": 19, "ageMax": 70, "rda": 1.8, "ul": 11 }
+    ]
+  },
+  "chromium": {
+    "unit": "mcg",
+    "groups": [
+      { "sex": "male", "ageMin": 19, "ageMax": 50, "rda": 35, "ul": 0 },
+      { "sex": "male", "ageMin": 51, "ageMax": 70, "rda": 30, "ul": 0 },
+      { "sex": "female", "ageMin": 19, "ageMax": 50, "rda": 25, "ul": 0 },
+      { "sex": "female", "ageMin": 51, "ageMax": 70, "rda": 20, "ul": 0 }
+    ]
+  }
+}
