@@ -32,6 +32,11 @@ public class DietPlan {
     // Multi-day plan structure
     private List<DayPlan> days = new ArrayList<>();
     private int totalDays;
+    /**
+     * When set (hybrid progressive), each complete-days call may append up to this many days
+     * if the client does not pass an explicit batchSize.
+     */
+    private Integer syncBatchSize;
     private List<RemovedMealSlot> removedMealSlots = new ArrayList<>();
 
     private String notes;
@@ -192,6 +197,8 @@ public class DietPlan {
         private Integer dayIndex;
         private int originalMealIndex;
         private String mealName;
+        private String excludedPreference;
+        private String exclusionReason;
         private Instant removedAt;
         private Meal originalMealSnapshot;
     }

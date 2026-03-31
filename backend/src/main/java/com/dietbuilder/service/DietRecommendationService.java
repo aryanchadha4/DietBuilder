@@ -182,9 +182,12 @@ public class DietRecommendationService {
         if ("hybrid".equalsIgnoreCase(mode)) {
             List<String> ragKeywords = MealBankService.keywordsFromRetrieval(retrievalResult);
             MealBankService.MealPools pools = mealBankService.getOrBuildPools(cuisineList, allDisliked, ragKeywords);
-            int sync = syncDays != null ? Math.min(Math.max(1, syncDays), numDays) : numDays;
+            // Only first-batch when syncDays is explicitly 1..numDays-1. null/0/missing => full plan (avoid max(1,0)->1 day bug).
+            int sync = numDays;
+            if (syncDays != null && syncDays > 0) {
+                sync = Math.min(syncDays, numDays);
+            }
             plan = planAssemblyService.assembleHybridPlan(profile, pools, sync, 1, cuisineList, startTime);
-            plan.setTotalDays(numDays);
             if (!"fast".equalsIgnoreCase(depth)) {
                 long tPolish = System.currentTimeMillis();
                 openAIService.applyHybridPolish(plan, profile, cuisineList);
@@ -197,6 +200,14 @@ public class DietRecommendationService {
             }
         } else {
             plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
+        }
+        // Always persist the requested horizon so the UI can show partial plans (e.g. model returned fewer days than asked).
+        plan.setTotalDays(numDays);
+        if ("hybrid".equalsIgnoreCase(mode) && syncDays != null && syncDays > 0) {
+            int eff = Math.min(syncDays, numDays);
+            if (eff < numDays) {
+                plan.setSyncBatchSize(eff);
+            }
         }
         long openAiMs = System.currentTimeMillis() - tOpenAiStart;
         plan.setProfileId(profileId);
@@ -417,8 +428,11 @@ public class DietRecommendationService {
 
     /**
      * Fills in remaining days when a hybrid run returned {@code totalDays} &gt; {@code days.size()}.
+     *
+     * @param batchSize if non-null and positive, append at most {@code min(batchSize, remaining)} days;
+     *                  if null, append all remaining days (legacy one-shot completion).
      */
-    public DietPlan completePartialPlanDays(String planId) {
+    public DietPlan completePartialPlanDays(String planId, Integer batchSize) {
         DietPlan existing = dietPlanRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
         UserProfile profile = getProfile(existing.getProfileId());
@@ -431,13 +445,35 @@ public class DietRecommendationService {
         }
         int remaining = total - existing.getDays().size();
         int firstDay = existing.getDays().size() + 1;
+        int chunk;
+        if (batchSize != null && batchSize > 0) {
+            chunk = Math.min(batchSize, remaining);
+        } else {
+            chunk = remaining;
+        }
         User user = getCurrentUser();
         List<String> cuisines = normalizeCuisineList(existing.getCuisinePreferences());
         List<String> disliked = foodPreferenceService.getActiveDislikedFoodNames(user.getId());
-        ExpertKnowledgeService.RetrievalResult retrievalResult = expertKnowledgeService.retrieveForProfile(profile, cuisines, 15);
-        List<String> ragKeywords = MealBankService.keywordsFromRetrieval(retrievalResult);
+        List<String> ragKeywords;
+        try {
+            ExpertKnowledgeService.RetrievalResult retrievalResult =
+                    expertKnowledgeService.retrieveForProfile(profile, cuisines, 15);
+            ragKeywords = MealBankService.keywordsFromRetrieval(retrievalResult);
+        } catch (Exception e) {
+            log.warn("complete-days: expert retrieval failed ({}), using cuisine-only keywords for meal bank",
+                    e.getMessage());
+            ragKeywords = new ArrayList<>();
+            for (String c : cuisines) {
+                for (String t : c.toLowerCase(java.util.Locale.ROOT).split("\\W+")) {
+                    if (t.length() >= 4) {
+                        ragKeywords.add(t);
+                    }
+                }
+            }
+            ragKeywords = ragKeywords.stream().distinct().limit(40).toList();
+        }
         MealBankService.MealPools pools = mealBankService.getOrBuildPools(cuisines, disliked, ragKeywords);
-        DietPlan segment = planAssemblyService.assembleHybridPlan(profile, pools, remaining, firstDay, cuisines, System.currentTimeMillis());
+        DietPlan segment = planAssemblyService.assembleHybridPlan(profile, pools, chunk, firstDay, cuisines, System.currentTimeMillis());
         existing.getDays().addAll(segment.getDays());
         existing.setTotalDays(total);
         recomputeMultiDayPlanAggregates(existing);
@@ -468,7 +504,8 @@ public class DietRecommendationService {
      * Removes one meal from a saved plan (multi-day or legacy single-day). Recomputes day and plan-level
      * calories and macro breakdowns; clears nutrient audit (stale after edit).
      */
-    public DietPlan removeMealFromPlan(String planId, Integer dayIndex, int mealIndex) {
+    public DietPlan removeMealFromPlan(String planId, Integer dayIndex, int mealIndex,
+                                       String excludePreference, String exclusionReason) {
         DietPlan plan = dietPlanRepository.findById(planId)
                 .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
         getProfile(plan.getProfileId());
@@ -476,6 +513,8 @@ public class DietRecommendationService {
             plan.setRemovedMealSlots(new ArrayList<>());
         }
 
+        String resolvedExcludePreference = null;
+        String resolvedExclusionReason = null;
         if (plan.getDays() != null && !plan.getDays().isEmpty()) {
             int dIdx = dayIndex != null ? dayIndex : 0;
             if (dIdx < 0 || dIdx >= plan.getDays().size()) {
@@ -486,7 +525,10 @@ public class DietRecommendationService {
                 throw new IllegalArgumentException("Invalid mealIndex: " + mealIndex);
             }
             DietPlan.Meal removedMeal = day.getMeals().get(mealIndex);
-            plan.getRemovedMealSlots().add(buildRemovedMealSlot(dIdx, mealIndex, removedMeal));
+            resolvedExcludePreference = normalizeExclusionPreference(excludePreference, removedMeal.getName());
+            resolvedExclusionReason = normalizeExclusionReason(exclusionReason, removedMeal.getName());
+            plan.getRemovedMealSlots().add(buildRemovedMealSlot(
+                    dIdx, mealIndex, removedMeal, resolvedExcludePreference, resolvedExclusionReason));
             day.getMeals().remove(mealIndex);
             recomputeDayPlan(day);
             recomputeMultiDayPlanAggregates(plan);
@@ -495,21 +537,52 @@ public class DietRecommendationService {
                 throw new IllegalArgumentException("Invalid mealIndex: " + mealIndex);
             }
             DietPlan.Meal removedMeal = plan.getMeals().get(mealIndex);
-            plan.getRemovedMealSlots().add(buildRemovedMealSlot(null, mealIndex, removedMeal));
+            resolvedExcludePreference = normalizeExclusionPreference(excludePreference, removedMeal.getName());
+            resolvedExclusionReason = normalizeExclusionReason(exclusionReason, removedMeal.getName());
+            plan.getRemovedMealSlots().add(buildRemovedMealSlot(
+                    null, mealIndex, removedMeal, resolvedExcludePreference, resolvedExclusionReason));
             plan.getMeals().remove(mealIndex);
             recomputeLegacyPlanFromMeals(plan);
         }
+
+        // Persist exclusion in food_preferences so future generations avoid it.
+        foodPreferenceService.addDislike(
+                resolvedExcludePreference,
+                com.dietbuilder.model.FoodPreference.PreferenceType.TEMPORARY,
+                resolvedExclusionReason,
+                planId);
 
         plan.setNutrientAudit(null);
         return dietPlanRepository.save(plan);
     }
 
-    private static DietPlan.RemovedMealSlot buildRemovedMealSlot(Integer dayIndex, int mealIndex, DietPlan.Meal removedMeal) {
+    private static String normalizeExclusionPreference(String preference, String fallbackMealName) {
+        if (preference != null && !preference.isBlank()) {
+            return preference.trim();
+        }
+        return fallbackMealName;
+    }
+
+    private static String normalizeExclusionReason(String reason, String mealName) {
+        if (reason != null && !reason.isBlank()) {
+            return reason.trim();
+        }
+        return "Removed from meal \"" + mealName + "\"";
+    }
+
+    private static DietPlan.RemovedMealSlot buildRemovedMealSlot(
+            Integer dayIndex,
+            int mealIndex,
+            DietPlan.Meal removedMeal,
+            String excludedPreference,
+            String exclusionReason) {
         DietPlan.RemovedMealSlot slot = new DietPlan.RemovedMealSlot();
         slot.setSlotId(UUID.randomUUID().toString());
         slot.setDayIndex(dayIndex);
         slot.setOriginalMealIndex(mealIndex);
         slot.setMealName(removedMeal.getName());
+        slot.setExcludedPreference(excludedPreference);
+        slot.setExclusionReason(exclusionReason);
         slot.setRemovedAt(java.time.Instant.now());
         DietPlan.Meal snapshot = new DietPlan.Meal();
         snapshot.setName(removedMeal.getName());
@@ -572,8 +645,10 @@ public class DietRecommendationService {
             return;
         }
         int sumKcal = days.stream().mapToInt(DietPlan.DayPlan::getDailyCalories).sum();
-        plan.setTotalDays(days.size());
-        plan.setDailyCalories(sumKcal / days.size());
+        int loaded = days.size();
+        // Preserve requested horizon (e.g. 14) when only part of the plan is loaded; do not shrink totalDays to loaded count.
+        plan.setTotalDays(Math.max(plan.getTotalDays(), loaded));
+        plan.setDailyCalories(sumKcal / loaded);
 
         double pW = 0;
         double cW = 0;

@@ -30,10 +30,16 @@ public class DietPlanController {
                         planMode, hybridDepth, syncDays));
     }
 
-    /** Append remaining days for a partial hybrid plan ({@code days.size() < totalDays}). */
+    /**
+     * Append remaining days for a partial hybrid plan ({@code days.size() < totalDays}).
+     * Optional {@code batchSize}: append at most that many days per call (progressive loading).
+     * When omitted, appends all remaining days in one call.
+     */
     @PostMapping("/diet-plans/{planId}/complete-days")
-    public ResponseEntity<DietPlan> completePlanDays(@PathVariable String planId) {
-        return ResponseEntity.ok(recommendationService.completePartialPlanDays(planId));
+    public ResponseEntity<DietPlan> completePlanDays(
+            @PathVariable String planId,
+            @RequestParam(required = false) Integer batchSize) {
+        return ResponseEntity.ok(recommendationService.completePartialPlanDays(planId, batchSize));
     }
 
     @PostMapping("/recommend/{profileId}/regenerate")
@@ -58,8 +64,14 @@ public class DietPlanController {
     public DietPlan removeMeal(
             @PathVariable String planId,
             @RequestParam int mealIndex,
-            @RequestParam(required = false) Integer dayIndex) {
-        return recommendationService.removeMealFromPlan(planId, dayIndex, mealIndex);
+            @RequestParam(required = false) Integer dayIndex,
+            @RequestBody(required = false) RemoveMealRequest request) {
+        return recommendationService.removeMealFromPlan(
+                planId,
+                dayIndex,
+                mealIndex,
+                request != null ? request.getExcludePreference() : null,
+                request != null ? request.getExclusionReason() : null);
     }
 
     @PostMapping("/diet-plans/{planId}/regenerate-removed")
@@ -81,5 +93,11 @@ public class DietPlanController {
     @lombok.Data
     public static class RegenerateRemovedRequest {
         private List<String> rejectedFoods;
+    }
+
+    @lombok.Data
+    public static class RemoveMealRequest {
+        private String excludePreference;
+        private String exclusionReason;
     }
 }

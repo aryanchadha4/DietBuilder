@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { DietPlan, DayPlan, Meal, MealFood } from "@/lib/api";
 import { Card, CardHeader, CardTitle } from "./ui/Card";
 import { Badge } from "./ui/Badge";
+import { Button } from "./ui/Button";
 import { SafetyAlertBanner } from "./SafetyAlertBanner";
 import { NutrientAuditPanel } from "./NutrientAuditPanel";
 import { EvidenceTagList } from "./EvidenceBadge";
@@ -24,7 +25,29 @@ import {
   LayoutGrid,
   Trash2,
   RefreshCw,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
+
+/**
+ * Horizon for partial UI: max of API totalDays, "N-day" in planContent, and loaded days
+ * (monolith often sets totalDays to the number of day objects returned, not what was requested).
+ */
+function inferTotalDaysTarget(plan: DietPlan): number {
+  const explicit = plan.totalDays ?? 0;
+  let parsed = 0;
+  const text = plan.planContent ?? "";
+  const m = text.match(/\b(\d{1,2})\s*[-–]?\s*day\b/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= 31) {
+      parsed = n;
+    }
+  }
+  const loaded = plan.days?.length ?? 0;
+  const best = Math.max(explicit, parsed, loaded);
+  return best > 0 ? best : loaded;
+}
 
 interface MultiDayPlanViewProps {
   plan: DietPlan;
@@ -38,9 +61,18 @@ interface MultiDayPlanViewProps {
   onRemoveMeal?: (ctx: {
     dayIndex: number | null;
     mealIndex: number;
+    excludePreference: string;
+    mealName: string;
   }) => Promise<void>;
   onReplaceRemovedMeals?: () => void;
   replaceRemovedLoading?: boolean;
+  /** When the plan is partial (fewer `days` than `totalDays`), load the rest from the server. */
+  onLoadRemainingDays?: () => void | Promise<void>;
+  loadingRemainingDays?: boolean;
+  /** Hybrid progressive: batch size for in-flight vs queued pending tiles. */
+  progressiveBatchSize?: number;
+  /** When false (e.g. Recommend auto-load), hides the “Load remaining days” card; shows a slim status line only while loading. */
+  showManualLoadRemaining?: boolean;
 }
 
 function MacroRing({
@@ -143,7 +175,7 @@ function MealCard({
 }: {
   meal: Meal;
   onRejectFood?: (foodName: string, type: "PERMANENT" | "TEMPORARY", reason?: string) => void;
-  onRemoveMeal?: () => void;
+  onRemoveMeal?: (excludePreference: string) => void;
   removeDisabled?: boolean;
 }) {
   return (
@@ -158,14 +190,14 @@ function MealCard({
             <button
               type="button"
               onClick={() => {
-                if (
-                  typeof window !== "undefined" &&
-                  window.confirm(
-                    `Remove "${meal.name}" from this plan? This does not add foods to your exclusion list.`
-                  )
-                ) {
-                  onRemoveMeal();
-                }
+                if (typeof window === "undefined") return;
+                const response = window.prompt(
+                  `What part of "${meal.name}" did you not like?\nYou can name an ingredient or keep the whole meal name.`,
+                  meal.name
+                );
+                if (response === null) return;
+                const excludePreference = response.trim() || meal.name;
+                onRemoveMeal(excludePreference);
               }}
               disabled={removeDisabled}
               className="inline-flex items-center justify-center rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-40"
@@ -204,6 +236,58 @@ function MealCard({
   );
 }
 
+function pendingTileStatus(
+  dayNum: number,
+  loadedCount: number,
+  totalTarget: number,
+  loading: boolean,
+  batchSize?: number
+): "queued" | "in_flight" {
+  if (!loading) return "queued";
+  if (batchSize != null && batchSize > 0) {
+    const end = Math.min(loadedCount + batchSize, totalTarget);
+    return dayNum >= loadedCount + 1 && dayNum <= end ? "in_flight" : "queued";
+  }
+  return "in_flight";
+}
+
+function PendingDayCard({
+  dayNumber,
+  moreCount,
+  status,
+}: {
+  dayNumber: number;
+  /** When set, show “+N more” (remaining days after this placeholder). */
+  moreCount?: number;
+  status: "queued" | "in_flight";
+}) {
+  const inFlight = status === "in_flight";
+  return (
+    <div
+      className="flex-shrink-0 rounded-xl border border-dashed border-primary/35 bg-primary/[0.04] px-4 py-3 text-left min-w-[140px]"
+      aria-hidden
+    >
+      <p className="text-xs font-semibold text-muted-foreground">Day {dayNumber}</p>
+      <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+        {inFlight ? "Loading now" : "Waiting"}
+      </p>
+      <p className="text-sm font-medium mt-1 text-primary/80 flex items-center gap-1.5">
+        {inFlight ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+            Generating
+          </>
+        ) : (
+          "Queued"
+        )}
+      </p>
+      {moreCount != null && moreCount > 0 && (
+        <p className="text-[10px] text-muted-foreground mt-1">+{moreCount} more</p>
+      )}
+    </div>
+  );
+}
+
 function DaySummaryCard({
   day,
   selected,
@@ -238,48 +322,141 @@ function DaySummaryCard({
 function OverviewGrid({
   days,
   onSelectDay,
+  pendingCount,
+  canLoadRemaining,
+  loadingRemainingDays = false,
+  progressiveBatchSize,
+  totalDaysTarget,
+  autoPipelineActive,
 }: {
   days: DayPlan[];
   onSelectDay: (idx: number) => void;
+  /** Extra days not yet loaded (show dashed “Generating” tiles). */
+  pendingCount?: number;
+  /** Hybrid progressive: user can call complete-days from the banner. */
+  canLoadRemaining?: boolean;
+  /** Recommend auto-load: no manual button; adjust queued-tile copy. */
+  autoPipelineActive?: boolean;
+  loadingRemainingDays?: boolean;
+  progressiveBatchSize?: number;
+  totalDaysTarget: number;
 }) {
+  const showPending = pendingCount != null && pendingCount > 0;
+  const L = days.length;
+  const batch = progressiveBatchSize ?? 0;
+  const inFlightEnd =
+    loadingRemainingDays && batch > 0
+      ? Math.min(L + batch, totalDaysTarget)
+      : loadingRemainingDays
+        ? totalDaysTarget
+        : L;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {days.map((day, idx) => (
-        <Card
-          key={day.dayNumber}
-          hover
-          className="cursor-pointer"
-          onClick={() => onSelectDay(idx)}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-primary">
-              Day {day.dayNumber}
-            </span>
-            <Badge variant="info">{day.dailyCalories} kcal</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mb-2">
-            {day.label?.replace(/^Day \d+\s*[-–]\s*/, "") || ""}
-          </p>
-          <div className="space-y-1">
-            {day.meals?.map((meal, mi) => (
-              <div
-                key={mi}
-                className="flex items-center justify-between text-xs"
-              >
-                <span className="text-muted-foreground">{meal.name}</span>
-                <span className="font-medium">{meal.calories} kcal</span>
-              </div>
-            ))}
-          </div>
-          {day.macroBreakdown && (
-            <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
-              <span>P {Math.round(day.macroBreakdown.proteinPercent)}%</span>
-              <span>C {Math.round(day.macroBreakdown.carbsPercent)}%</span>
-              <span>F {Math.round(day.macroBreakdown.fatPercent)}%</span>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {days.map((day, idx) => (
+          <Card
+            key={day.dayNumber}
+            hover
+            className="cursor-pointer"
+            onClick={() => onSelectDay(idx)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-primary">
+                Day {day.dayNumber}
+              </span>
+              <Badge variant="info">{day.dailyCalories} kcal</Badge>
             </div>
-          )}
-        </Card>
-      ))}
+            <p className="text-xs text-muted-foreground mb-2">
+              {day.label?.replace(/^Day \d+\s*[-–]\s*/, "") || ""}
+            </p>
+            <div className="space-y-1">
+              {day.meals?.map((meal, mi) => (
+                <div
+                  key={mi}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="text-muted-foreground">{meal.name}</span>
+                  <span className="font-medium">{meal.calories} kcal</span>
+                </div>
+              ))}
+            </div>
+            {day.macroBreakdown && (
+              <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
+                <span>P {Math.round(day.macroBreakdown.proteinPercent)}%</span>
+                <span>C {Math.round(day.macroBreakdown.carbsPercent)}%</span>
+                <span>F {Math.round(day.macroBreakdown.fatPercent)}%</span>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {showPending && (
+        <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            {loadingRemainingDays ? (
+              <Loader2 className="h-4 w-4 text-primary shrink-0 animate-spin" />
+            ) : (
+              <div className="h-4 w-4 shrink-0 rounded-full border border-primary/40" />
+            )}
+            <span className="text-sm font-semibold text-foreground">
+              {loadingRemainingDays
+                ? batch > 0
+                  ? `Adding days ${L + 1}–${inFlightEnd}…`
+                  : "Loading remaining days…"
+                : `Upcoming — ${pendingCount} more day${
+                    pendingCount !== 1 ? "s" : ""
+                  }`}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: Math.min(3, pendingCount) }).map((_, i) => {
+              const dn = days.length + i + 1;
+              const moreAfter =
+                i === Math.min(3, pendingCount) - 1 && pendingCount > 3
+                  ? pendingCount - 3
+                  : undefined;
+              const st = pendingTileStatus(
+                dn,
+                L,
+                totalDaysTarget,
+                loadingRemainingDays,
+                batch > 0 ? batch : undefined
+              );
+              return (
+                <Card
+                  key={`ov-pending-${dn}`}
+                  className="border-2 border-dashed border-primary/40 bg-background/80"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-primary/90">
+                      Day {dn}
+                    </span>
+                    <Badge variant={st === "in_flight" ? "warning" : "default"}>
+                      {st === "in_flight" ? "Generating" : "Queued"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {st === "in_flight"
+                      ? "Fetching this batch from the server."
+                      : autoPipelineActive
+                        ? "Queued — upcoming batches load automatically."
+                        : canLoadRemaining
+                          ? "Will load after the current batch, or tap “Load remaining days” for all at once."
+                          : "The model returned fewer days than requested. Regenerate or switch to hybrid for full coverage."}
+                  </p>
+                  {moreAfter != null && moreAfter > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      +{moreAfter} more day{moreAfter !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -290,9 +467,19 @@ export function MultiDayPlanView({
   onRemoveMeal,
   onReplaceRemovedMeals,
   replaceRemovedLoading,
+  onLoadRemainingDays,
+  loadingRemainingDays = false,
+  progressiveBatchSize,
+  showManualLoadRemaining = true,
 }: MultiDayPlanViewProps) {
   const days = plan.days || [];
   const isMultiDay = days.length > 0;
+  const totalDaysTarget = inferTotalDaysTarget(plan);
+  const partialPlan =
+    isMultiDay &&
+    totalDaysTarget > 0 &&
+    days.length < totalDaysTarget;
+  const pendingDayCount = partialPlan ? totalDaysTarget - days.length : 0;
 
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [showOverview, setShowOverview] = useState(false);
@@ -304,12 +491,14 @@ export function MultiDayPlanView({
   async function runRemoveMeal(
     key: string,
     dayIndex: number | null,
-    mealIndex: number
+    mealIndex: number,
+    excludePreference: string,
+    mealName: string
   ) {
     if (!onRemoveMeal) return;
     setRemovingKey(key);
     try {
-      await onRemoveMeal({ dayIndex, mealIndex });
+      await onRemoveMeal({ dayIndex, mealIndex, excludePreference, mealName });
     } finally {
       setRemovingKey(null);
     }
@@ -368,7 +557,14 @@ export function MultiDayPlanView({
                 onRejectFood={onRejectFood ? (name, type, reason) => onRejectFood(name, type, reason, plan.id) : undefined}
                 onRemoveMeal={
                   canRemoveMeal
-                    ? () => void runRemoveMeal(`legacy-${i}`, null, i)
+                      ? (excludePreference) =>
+                          void runRemoveMeal(
+                            `legacy-${i}`,
+                            null,
+                            i,
+                            excludePreference,
+                            meal.name
+                          )
                     : undefined
                 }
                 removeDisabled={removingKey !== null}
@@ -421,6 +617,62 @@ export function MultiDayPlanView({
         safetyCleared={plan.safetyCleared}
       />
 
+      {partialPlan && showManualLoadRemaining && (
+        <Card className="border-primary/35 bg-gradient-to-br from-primary/[0.1] to-transparent overflow-hidden shadow-sm">
+          <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
+                {loadingRemainingDays ? (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" aria-hidden />
+                ) : (
+                  <Sparkles className="h-5 w-5 text-primary" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-foreground">Generating</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {loadingRemainingDays
+                    ? progressiveBatchSize != null &&
+                      progressiveBatchSize > 0
+                      ? `Adding days ${days.length + 1}–${Math.min(
+                          days.length + progressiveBatchSize,
+                          totalDaysTarget
+                        )}…`
+                      : `Loading remaining days (${days.length + 1}–${totalDaysTarget})…`
+                    : `${days.length} of ${totalDaysTarget} days in this plan. Load the rest to finish.`}
+                </p>
+              </div>
+            </div>
+            {onLoadRemainingDays && (
+              <Button
+                size="lg"
+                variant="secondary"
+                className="shrink-0 w-full sm:w-auto sm:min-w-[12rem]"
+                onClick={() => void onLoadRemainingDays()}
+                loading={loadingRemainingDays}
+                disabled={loadingRemainingDays}
+              >
+                {loadingRemainingDays ? "Generating…" : "Load remaining days"}
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {partialPlan && !showManualLoadRemaining && loadingRemainingDays && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" aria-hidden />
+          <span>
+            {progressiveBatchSize != null && progressiveBatchSize > 0
+              ? `Adding days ${days.length + 1}–${Math.min(
+                  days.length + progressiveBatchSize,
+                  totalDaysTarget
+                )}…`
+              : `Loading days ${days.length + 1}–${totalDaysTarget}…`}
+          </span>
+        </div>
+      )}
+
       {plan.version && plan.version > 1 && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Scale className="h-4 w-4" />
@@ -437,8 +689,22 @@ export function MultiDayPlanView({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="text-center">
           <CalendarDays className="h-8 w-8 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{days.length}</p>
-          <p className="text-xs text-muted-foreground">Days</p>
+          <p className="text-2xl font-bold">
+            {partialPlan ? (
+              <>
+                {days.length}
+                <span className="text-muted-foreground font-normal">
+                  {" "}
+                  / {totalDaysTarget}
+                </span>
+              </>
+            ) : (
+              days.length
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {partialPlan ? "Days loaded" : "Days"}
+          </p>
         </Card>
         <Card className="text-center">
           <Flame className="h-8 w-8 mx-auto text-accent mb-2" />
@@ -527,6 +793,12 @@ export function MultiDayPlanView({
       {showOverview ? (
         <OverviewGrid
           days={days}
+          pendingCount={partialPlan ? pendingDayCount : undefined}
+          canLoadRemaining={Boolean(onLoadRemainingDays)}
+          autoPipelineActive={partialPlan && !showManualLoadRemaining}
+          loadingRemainingDays={loadingRemainingDays}
+          progressiveBatchSize={progressiveBatchSize}
+          totalDaysTarget={totalDaysTarget}
           onSelectDay={(idx) => {
             setSelectedDayIdx(idx);
             setShowOverview(false);
@@ -547,6 +819,35 @@ export function MultiDayPlanView({
                 onClick={() => setSelectedDayIdx(idx)}
               />
             ))}
+            {partialPlan &&
+              pendingDayCount > 0 &&
+              Array.from({
+                length: Math.min(3, pendingDayCount),
+              }).map((_, i) => {
+                const dn = days.length + i + 1;
+                const isLastShown = i === Math.min(3, pendingDayCount) - 1;
+                const moreAfter =
+                  isLastShown && pendingDayCount > 3
+                    ? pendingDayCount - 3
+                    : undefined;
+                const st = pendingTileStatus(
+                  dn,
+                  days.length,
+                  totalDaysTarget,
+                  loadingRemainingDays,
+                  progressiveBatchSize != null && progressiveBatchSize > 0
+                    ? progressiveBatchSize
+                    : undefined
+                );
+                return (
+                  <PendingDayCard
+                    key={`pending-${dn}`}
+                    dayNumber={dn}
+                    moreCount={moreAfter}
+                    status={st}
+                  />
+                );
+              })}
           </div>
 
           {/* Selected day detail */}
@@ -581,11 +882,13 @@ export function MultiDayPlanView({
                   }
                   onRemoveMeal={
                     canRemoveMeal
-                      ? () =>
+                      ? (excludePreference) =>
                           void runRemoveMeal(
                             `d${selectedDayIdx}-m${mi}`,
                             selectedDayIdx,
-                            mi
+                            mi,
+                            excludePreference,
+                            meal.name
                           )
                       : undefined
                   }
@@ -632,7 +935,8 @@ export function MultiDayPlanView({
                   Previous Day
                 </button>
                 <span className="text-xs text-muted-foreground">
-                  Day {selectedDayIdx + 1} of {days.length}
+                  Day {selectedDayIdx + 1} of{" "}
+                  {partialPlan ? totalDaysTarget : days.length}
                 </span>
                 <button
                   onClick={() =>

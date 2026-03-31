@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, UserProfile, DietPlan } from "@/lib/api";
+import { completePartialPlanUntilDone } from "@/lib/completePartialPlan";
 import { MultiDayPlanView } from "@/components/MultiDayPlanView";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -38,6 +39,12 @@ function PlansContent() {
     []
   );
   const [regenerating, setRegenerating] = useState(false);
+  const [completingDays, setCompletingDays] = useState(false);
+  const plansProgressAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => plansProgressAbortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +58,58 @@ function PlansContent() {
       .catch(() => toast.error("Failed to load data"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    plansProgressAbortRef.current?.abort();
+    plansProgressAbortRef.current = null;
+    if (!selectedPlan?.id) return;
+    const have = selectedPlan.days?.length ?? 0;
+    const total = selectedPlan.totalDays ?? 0;
+    if (have >= total || total <= 0) return;
+
+    const ac = new AbortController();
+    plansProgressAbortRef.current = ac;
+    const batch =
+      selectedPlan.syncBatchSize != null && selectedPlan.syncBatchSize > 0
+        ? selectedPlan.syncBatchSize
+        : null;
+
+    const planSnapshot = selectedPlan;
+
+    void (async () => {
+      setCompletingDays(true);
+      try {
+        const final = await completePartialPlanUntilDone(planSnapshot, batch, {
+          signal: ac.signal,
+          onProgress: (p) => {
+            setSelectedPlan(p);
+            setPlans((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+          },
+        });
+        setSelectedPlan(final);
+        setPlans((prev) => prev.map((x) => (x.id === final.id ? final : x)));
+        if (!ac.signal.aborted) {
+          toast.success(
+            `Plan complete: ${final.days?.length ?? 0} of ${final.totalDays ?? "?"} days`
+          );
+        }
+      } catch (e: unknown) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (e instanceof Error && e.name === "AbortError") return;
+        if (e instanceof Error && e.message === "NO_PROGRESS") {
+          toast.error(
+            "Could not load more days. Try “Load remaining days”."
+          );
+          return;
+        }
+        toast.error(
+          e instanceof Error ? e.message : "Failed to complete plan days"
+        );
+      } finally {
+        setCompletingDays(false);
+      }
+    })();
+  }, [selectedPlan?.id]);
 
   const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
@@ -126,27 +185,40 @@ function PlansContent() {
   async function handleRemoveMeal({
     dayIndex,
     mealIndex,
+    excludePreference,
+    mealName,
   }: {
     dayIndex: number | null;
     mealIndex: number;
+    excludePreference: string;
+    mealName: string;
   }) {
     if (!selectedPlan?.id) return;
     try {
       const next = await api.dietPlans.removeMeal(
         selectedPlan.id,
         mealIndex,
-        dayIndex ?? undefined
+        dayIndex ?? undefined,
+        {
+          excludePreference,
+          exclusionReason: `Removed from meal "${mealName}"`,
+        }
       );
       setSelectedPlan(next);
       setPlans((prev) => prev.map((p) => (p.id === next.id ? next : p)));
+      setRejectedThisSession((prev) =>
+        prev.includes(excludePreference)
+          ? prev
+          : [...prev, excludePreference]
+      );
       const pendingRemoved = next.removedMealSlots?.length ?? 0;
       toast.success(
         pendingRemoved > 0
-          ? `Meal removed. ${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending.`
-          : "Meal removed from plan"
+          ? `Meal removed. "${excludePreference}" added to exclusions (${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending).`
+          : `Meal removed. "${excludePreference}" added to exclusions.`
       );
-    } catch {
-      toast.error("Failed to remove meal");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove meal");
     }
   }
 
@@ -170,6 +242,30 @@ function PlansContent() {
       );
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleCompleteRemainingDays() {
+    if (!selectedPlan?.id) return;
+    const total = selectedPlan.totalDays ?? 0;
+    const have = selectedPlan.days?.length ?? 0;
+    if (total <= 0 || have >= total) return;
+    plansProgressAbortRef.current?.abort();
+    plansProgressAbortRef.current = null;
+    setCompletingDays(true);
+    try {
+      const next = await api.dietPlans.completeRemainingDays(selectedPlan.id);
+      setSelectedPlan(next);
+      setPlans((prev) => prev.map((p) => (p.id === next.id ? next : p)));
+      toast.success(
+        `Plan now has ${next.days?.length ?? 0} of ${next.totalDays ?? "?"} days`
+      );
+    } catch (e: unknown) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to load remaining days"
+      );
+    } finally {
+      setCompletingDays(false);
     }
   }
 
@@ -245,6 +341,10 @@ function PlansContent() {
           onRemoveMeal={handleRemoveMeal}
           onReplaceRemovedMeals={handleReplaceRemovedMeals}
           replaceRemovedLoading={regenerating}
+          onLoadRemainingDays={handleCompleteRemainingDays}
+          loadingRemainingDays={completingDays}
+          showManualLoadRemaining
+          progressiveBatchSize={selectedPlan.syncBatchSize ?? undefined}
         />
       </div>
     );

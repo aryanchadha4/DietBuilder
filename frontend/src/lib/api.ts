@@ -151,6 +151,8 @@ export interface RemovedMealSlot {
   dayIndex: number | null;
   originalMealIndex: number;
   mealName?: string;
+  excludedPreference?: string;
+  exclusionReason?: string;
   removedAt?: string;
 }
 
@@ -165,6 +167,8 @@ export interface DietPlan {
 
   days?: DayPlan[];
   totalDays?: number;
+  /** Hybrid progressive: batch size for chunked complete-days (server also persists this). */
+  syncBatchSize?: number | null;
 
   nutrientAudit?: NutrientAudit;
   evidenceTags?: EvidenceTag[];
@@ -428,8 +432,12 @@ export const api = {
       const params = new URLSearchParams();
       params.set("days", String(days));
       for (const c of cuisines) params.append("cuisines", c);
-      if (options?.planMode) params.set("planMode", options.planMode);
-      if (options?.hybridDepth) params.set("hybridDepth", options.hybridDepth);
+      // Always send planMode so the server never silently uses application default (monolith).
+      const planMode = options?.planMode ?? "hybrid";
+      params.set("planMode", planMode);
+      if (planMode === "hybrid") {
+        params.set("hybridDepth", options?.hybridDepth ?? "detailed");
+      }
       if (options?.syncDays != null && options.syncDays > 0) {
         params.set("syncDays", String(options.syncDays));
       }
@@ -437,10 +445,20 @@ export const api = {
         method: "POST",
       });
     },
-    completeRemainingDays: (planId: string) =>
-      request<DietPlan>(`/diet-plans/${planId}/complete-days`, {
-        method: "POST",
-      }),
+    completeRemainingDays: (
+      planId: string,
+      options?: { batchSize?: number; signal?: AbortSignal }
+    ) => {
+      const params = new URLSearchParams();
+      if (options?.batchSize != null && options.batchSize > 0) {
+        params.set("batchSize", String(options.batchSize));
+      }
+      const q = params.toString();
+      return request<DietPlan>(
+        `/diet-plans/${planId}/complete-days${q ? `?${q}` : ""}`,
+        { method: "POST", signal: options?.signal }
+      );
+    },
     regenerate: (profileId: string, body: RegenerateRequest) =>
       request<DietPlan>(`/recommend/${profileId}/regenerate`, {
         method: "POST",
@@ -449,7 +467,12 @@ export const api = {
     listByProfile: (profileId: string) =>
       request<DietPlan[]>(`/diet-plans/${profileId}`),
     listAll: () => request<DietPlan[]>("/diet-plans"),
-    removeMeal: (planId: string, mealIndex: number, dayIndex?: number) => {
+    removeMeal: (
+      planId: string,
+      mealIndex: number,
+      dayIndex?: number,
+      options?: { excludePreference?: string; exclusionReason?: string }
+    ) => {
       const params = new URLSearchParams();
       params.set("mealIndex", String(mealIndex));
       if (dayIndex !== undefined && dayIndex >= 0) {
@@ -457,7 +480,13 @@ export const api = {
       }
       return request<DietPlan>(
         `/diet-plans/${planId}/meals?${params.toString()}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          body: JSON.stringify({
+            excludePreference: options?.excludePreference,
+            exclusionReason: options?.exclusionReason,
+          }),
+        }
       );
     },
     regenerateRemoved: (planId: string, body: RegenerateRemovedRequest = {}) =>

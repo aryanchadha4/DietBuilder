@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   api,
@@ -9,6 +9,7 @@ import {
   FoodPreference,
   RecommendationLog,
 } from "@/lib/api";
+import { completePartialPlanUntilDone } from "@/lib/completePartialPlan";
 import { formatWeight } from "@/lib/units";
 import { MultiDayPlanView } from "@/components/MultiDayPlanView";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
@@ -99,6 +100,15 @@ function RecommendContent() {
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
 
+  /** Aborts in-flight progressive complete-days when leaving the page or starting a new generate. */
+  const progressiveAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      progressiveAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     Promise.all([
       api.profiles.list(),
@@ -129,18 +139,69 @@ function RecommendContent() {
   }, [selectedProfileId]);
 
   useEffect(() => {
-    if (!generating && !regenerating && !completingDays) return;
+    if (!generating && !regenerating) return;
     const interval = setInterval(() => {
       setLoadingMsg((prev) => (prev + 1) % LOADING_MESSAGES.length);
     }, 3500);
     return () => clearInterval(interval);
-  }, [generating, regenerating, completingDays]);
+  }, [generating, regenerating]);
+
+  function abortProgressivePipeline() {
+    progressiveAbortRef.current?.abort();
+    progressiveAbortRef.current = null;
+  }
+
+  async function runAutoCompletion(
+    initialPlan: DietPlan,
+    batchOrNull: number | null
+  ) {
+    abortProgressivePipeline();
+    const ac = new AbortController();
+    progressiveAbortRef.current = ac;
+    setCompletingDays(true);
+    try {
+      const final = await completePartialPlanUntilDone(initialPlan, batchOrNull, {
+        signal: ac.signal,
+        onProgress: (p) => {
+          setCurrentPlan(p);
+          setPastPlans((prev) =>
+            prev.map((x) => (x.id === p.id ? p : x))
+          );
+        },
+      });
+      setCurrentPlan(final);
+      setPastPlans((prev) =>
+        prev.map((x) => (x.id === final.id ? final : x))
+      );
+      if (!ac.signal.aborted) {
+        toast.success(
+          `Plan complete: ${final.days?.length ?? 0} of ${final.totalDays ?? "?"} days`
+        );
+      }
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (e instanceof Error && e.name === "AbortError") return;
+      if (e instanceof Error && e.message === "NO_PROGRESS") {
+        toast.error("Could not load more days. Try again from the Plans page.");
+        return;
+      }
+      const msg =
+        e instanceof Error ? e.message : "Failed to load remaining days";
+      toast.error(msg);
+    } finally {
+      setCompletingDays(false);
+      if (progressiveAbortRef.current === ac) {
+        progressiveAbortRef.current = null;
+      }
+    }
+  }
 
   async function handleGenerate() {
     if (!selectedProfileId) {
       toast.error("Please select a profile first");
       return;
     }
+    abortProgressivePipeline();
     setGenerating(true);
     setLoadingMsg(0);
     setAuditLog(null);
@@ -161,21 +222,45 @@ function RecommendContent() {
       );
       setCurrentPlan(plan);
 
-      if (
-        plan.safetyAlerts &&
-        plan.safetyAlerts.some((a) => a.severity === "BLOCK")
-      ) {
+      const have = plan.days?.length ?? 0;
+      const total = plan.totalDays ?? 0;
+      const blocked =
+        plan.safetyAlerts?.some((a) => a.severity === "BLOCK") ?? false;
+
+      if (blocked) {
         toast.error("Plan generation blocked due to safety concerns");
       } else if (plan.safetyAlerts && plan.safetyAlerts.length > 0) {
         toast("Plan generated with safety warnings", { icon: "⚠️" });
+      } else if (plan.id && have < total) {
+        const hasBatch =
+          (plan.syncBatchSize != null && plan.syncBatchSize > 0
+            ? plan.syncBatchSize
+            : typeof syncDays === "number" && syncDays > 0
+              ? Math.min(syncDays, numDays)
+              : null) ?? null;
+        if (hasBatch != null && hasBatch > 0) {
+          toast.success(
+            `First ${have} of ${total} days ready — loading the rest…`
+          );
+        } else {
+          toast.success(`Loading ${total} days…`);
+        }
       } else {
-        toast.success(
-          `${plan.totalDays || 1}-day diet plan generated!`
-        );
+        toast.success(`${total || 1}-day diet plan generated!`);
       }
 
       if (plan.id) {
         api.audit.forPlan(plan.id).then(setAuditLog).catch(() => {});
+      }
+
+      if (plan.id && have < total && !blocked) {
+        const batch =
+          plan.syncBatchSize ??
+          (typeof syncDays === "number" && syncDays > 0
+            ? Math.min(syncDays, numDays)
+            : null);
+        const batchOrNull = batch != null && batch > 0 ? batch : null;
+        void runAutoCompletion(plan, batchOrNull);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to generate plan";
@@ -188,31 +273,6 @@ function RecommendContent() {
       }
     } finally {
       setGenerating(false);
-    }
-  }
-
-  async function handleCompleteRemainingDays() {
-    if (!currentPlan?.id) return;
-    const total = currentPlan.totalDays ?? 0;
-    const have = currentPlan.days?.length ?? 0;
-    if (total <= 0 || have >= total) return;
-    setCompletingDays(true);
-    setLoadingMsg(0);
-    try {
-      const next = await api.dietPlans.completeRemainingDays(currentPlan.id);
-      setCurrentPlan(next);
-      setPastPlans((prev) =>
-        prev.map((p) => (p.id === next.id ? next : p))
-      );
-      toast.success(
-        `Extended plan: ${next.days?.length ?? 0} of ${next.totalDays ?? "?"} days`
-      );
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error ? e.message : "Failed to complete remaining days";
-      toast.error(msg);
-    } finally {
-      setCompletingDays(false);
     }
   }
 
@@ -262,6 +322,20 @@ function RecommendContent() {
         `Plan regenerated (v${plan.version || 2}) without rejected foods`
       );
 
+      const h = plan.days?.length ?? 0;
+      const t = plan.totalDays ?? 0;
+      const blockedReg =
+        plan.safetyAlerts?.some((a) => a.severity === "BLOCK") ?? false;
+      if (plan.id && h < t && !blockedReg) {
+        const batch =
+          plan.syncBatchSize ??
+          (typeof syncDays === "number" && syncDays > 0
+            ? Math.min(syncDays, numDays)
+            : null);
+        const batchOrNull = batch != null && batch > 0 ? batch : null;
+        void runAutoCompletion(plan, batchOrNull);
+      }
+
       if (plan.id) {
         api.audit.forPlan(plan.id).then(setAuditLog).catch(() => {});
       }
@@ -276,29 +350,44 @@ function RecommendContent() {
   async function handleRemoveMeal({
     dayIndex,
     mealIndex,
+    excludePreference,
+    mealName,
   }: {
     dayIndex: number | null;
     mealIndex: number;
+    excludePreference: string;
+    mealName: string;
   }) {
     if (!currentPlan?.id) return;
     try {
       const next = await api.dietPlans.removeMeal(
         currentPlan.id,
         mealIndex,
-        dayIndex ?? undefined
+        dayIndex ?? undefined,
+        {
+          excludePreference,
+          exclusionReason: `Removed from meal "${mealName}"`,
+        }
       );
       setCurrentPlan(next);
       setPastPlans((prev) =>
         prev.map((p) => (p.id === next.id ? next : p))
       );
+      setRejectedThisSession((prev) =>
+        prev.includes(excludePreference)
+          ? prev
+          : [...prev, excludePreference]
+      );
+      api.foodPreferences.list().then(setFoodPrefs).catch(() => {});
       const pendingRemoved = next.removedMealSlots?.length ?? 0;
       toast.success(
         pendingRemoved > 0
-          ? `Meal removed. ${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending.`
-          : "Meal removed from plan"
+          ? `Meal removed. "${excludePreference}" added to exclusions (${pendingRemoved} replacement${pendingRemoved !== 1 ? "s" : ""} pending).`
+          : `Meal removed. "${excludePreference}" added to exclusions.`
       );
-    } catch {
-      toast.error("Failed to remove meal");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to remove meal";
+      toast.error(msg);
     }
   }
 
@@ -446,12 +535,21 @@ function RecommendContent() {
                   type="number"
                   min={1}
                   max={numDays}
-                  placeholder="All"
+                  placeholder="All days"
+                  title="Leave empty to generate the full plan in one response. Set to 1–(plan days−1) for progressive loading."
                   value={syncDays}
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === "") setSyncDays("");
-                    else setSyncDays(Math.min(numDays, Math.max(1, Number(v))));
+                    if (v === "") {
+                      setSyncDays("");
+                      return;
+                    }
+                    const n = Number(v);
+                    if (!Number.isFinite(n) || n < 1) {
+                      setSyncDays("");
+                      return;
+                    }
+                    setSyncDays(Math.min(numDays, Math.floor(n)));
                   }}
                   className="w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20"
                 />
@@ -539,8 +637,8 @@ function RecommendContent() {
         </div>
       </Card>
 
-      {/* Loading state */}
-      {(generating || regenerating || completingDays) && (
+      {/* Loading state (progressive day batches keep the plan visible below) */}
+      {(generating || regenerating) && (
         <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
           <div className="relative mb-6">
             <div className="h-16 w-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
@@ -551,9 +649,7 @@ function RecommendContent() {
           <p className="text-xs text-muted-foreground mt-2">
             {regenerating
               ? "Refreshing plan changes..."
-              : completingDays
-                ? "Loading remaining days..."
-                : `Generating ${numDays}-day plan. This may take 30-60 seconds.`}
+              : `Generating ${numDays}-day plan. This may take 30-60 seconds.`}
           </p>
           <div className="mt-6 space-y-1.5">
             {LOADING_MESSAGES.slice(0, -1).map((msg, i) => (
@@ -599,31 +695,19 @@ function RecommendContent() {
       {/* Current plan */}
       {!generating && !regenerating && currentPlan && (
         <div className="space-y-6">
-          {currentPlan.totalDays != null &&
-            currentPlan.days != null &&
-            currentPlan.days.length < currentPlan.totalDays && (
-              <div className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-foreground">
-                  Showing {currentPlan.days.length} of {currentPlan.totalDays}{" "}
-                  days (progressive hybrid). Load the rest when ready.
-                </p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleCompleteRemainingDays}
-                  loading={completingDays}
-                  disabled={completingDays}
-                >
-                  Load remaining days
-                </Button>
-              </div>
-            )}
           <MultiDayPlanView
             plan={currentPlan}
             onRejectFood={handleRejectFood}
             onRemoveMeal={handleRemoveMeal}
             onReplaceRemovedMeals={handleReplaceRemovedMeals}
             replaceRemovedLoading={regenerating}
+            loadingRemainingDays={completingDays}
+            showManualLoadRemaining={false}
+            progressiveBatchSize={
+              (typeof syncDays === "number" && syncDays > 0
+                ? Math.min(syncDays, numDays)
+                : undefined) ?? currentPlan.syncBatchSize ?? undefined
+            }
           />
           <AuditLogViewer log={auditLog} />
         </div>
