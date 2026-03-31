@@ -117,8 +117,10 @@ public class OpenAIService {
         6. If one or more cultural cuisines are specified, the plan MUST use foods, ingredients, spices,
            and cooking methods authentic to those culinary traditions. Do not substitute generic Western
            foods where a specified tradition applies. Respect traditional meal structures and flavor profiles.
-           If 2+ cuisines are specified, each day MUST include at least 2 different selected cuisines across
-           Breakfast/Lunch/Dinner/Snack. A day that uses only one cuisine is INVALID.
+           CRITICAL: each meal/snack must map to exactly ONE selected cuisine; do not mix foods from
+           multiple selected cuisines in a single meal. If 2+ cuisines are specified, each day MUST include
+           at least 2 different selected cuisines across Breakfast/Lunch/Dinner/Snack. A day that uses only
+           one cuisine is INVALID.
         7. Present all measurements (food quantities, height, weight) in the unit system specified
            by the user (metric or imperial).
         8. Account for ALL listed exercise activities when estimating energy expenditure. Each
@@ -128,13 +130,13 @@ public class OpenAIService {
         9. Generate the exact number of days requested. Each day MUST have different meals.
         10. NO meal repetition across days unless the user has very limited food options.
         11. Vary ingredients, cuisines, and preparation styles across days.
-            If multiple cuisines are selected, mix them within each day (across meals/snacks),
-            rather than assigning only one cuisine per day.
+            If multiple cuisines are selected, distribute cuisines across meals/snacks within each day,
+            while keeping each meal internally single-cuisine.
         12. Each day MUST include Breakfast, Lunch, Dinner, and at least one Snack.
         13. Provide clear portion sizes and ingredient lists for every meal.
         14. Nutritional targets (calories, macros, micronutrients) must remain consistent across all days.
-        15. Each day should have a descriptive label that reflects mixed cuisines when 2+ cuisines are selected
-            (e.g., "Day 1 - Mixed: Mediterranean + South Asian", "Day 2 - Mixed: East Asian + Latin").
+        15. Each day should have a descriptive label that reflects cuisine distribution when 2+ cuisines are selected
+            (e.g., "Day 1 - Cuisine Rotation: Mediterranean + South Asian", "Day 2 - Cuisine Rotation: East Asian + Latin").
 
         RESPONSE FORMAT: Respond ONLY with valid JSON matching this schema:
         {
@@ -142,7 +144,7 @@ public class OpenAIService {
           "days": [
             {
               "dayNumber": 1,
-              "label": "Day 1 - Mixed: Mediterranean + South Asian",
+              "label": "Day 1 - Cuisine Rotation: Mediterranean + South Asian",
               "meals": [
                 {
                   "name": "Breakfast",
@@ -200,7 +202,7 @@ public class OpenAIService {
                                      List<CulturalFoodGroup> culturalFoods,
                                      int numDays, List<String> dislikedFoods) {
         return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
-                null, null, Map.of(), false);
+                null, null, Map.of(), false, null);
     }
 
     public DietPlan generateDietPlanWithSources(UserProfile profile, List<String> selectedCuisines,
@@ -208,11 +210,21 @@ public class OpenAIService {
                                                 int numDays, List<String> dislikedFoods,
                                                 List<ExpertSource> retrievedSources,
                                                 List<DietPlan.ConflictNote> conflicts) {
+        return generateDietPlanWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
+                retrievedSources, conflicts, null);
+    }
+
+    public DietPlan generateDietPlanWithSources(UserProfile profile, List<String> selectedCuisines,
+                                                List<CulturalFoodGroup> culturalFoods,
+                                                int numDays, List<String> dislikedFoods,
+                                                List<ExpertSource> retrievedSources,
+                                                List<DietPlan.ConflictNote> conflicts,
+                                                String additionalHardConstraints) {
         Map<String, ExpertSource> sourceMap = (retrievedSources == null ? List.<ExpertSource>of() : retrievedSources).stream()
                 .filter(s -> s.getId() != null)
                 .collect(Collectors.toMap(ExpertSource::getId, s -> s, (a, b) -> a, LinkedHashMap::new));
         return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
-                retrievedSources, conflicts, sourceMap, true);
+                retrievedSources, conflicts, sourceMap, true, additionalHardConstraints);
     }
 
     /**
@@ -226,7 +238,8 @@ public class OpenAIService {
                                             List<ExpertSource> retrievedSources,
                                             List<DietPlan.ConflictNote> conflicts,
                                             Map<String, ExpertSource> sourceMap,
-                                            boolean useExpertEvidenceBlock) {
+                                            boolean useExpertEvidenceBlock,
+                                            String additionalHardConstraints) {
         if (numDays <= 0) {
             throw new IllegalArgumentException("numDays must be positive");
         }
@@ -236,6 +249,7 @@ public class OpenAIService {
             String userMessage = useExpertEvidenceBlock
                     ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
                     : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+            userMessage = withAdditionalHardConstraints(userMessage, additionalHardConstraints);
             return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
         }
         log.info("openai.plan chunking: parallel_chunks={} chunk_days_setting={} total_days={} (cross-chunk variety is prompt-only)",
@@ -249,6 +263,7 @@ public class OpenAIService {
                     String userMessage = useExpertEvidenceBlock
                             ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
                             : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+                    userMessage = withAdditionalHardConstraints(userMessage, additionalHardConstraints);
                     return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
                 }, executor));
             }
@@ -298,6 +313,13 @@ public class OpenAIService {
 
         sb.append("\nAdapt the plan to address these issues while maintaining safety and nutritional adequacy.");
         return callOpenAISingle(sb.toString(), Map.of(), numDays);
+    }
+
+    private String withAdditionalHardConstraints(String userMessage, String additionalHardConstraints) {
+        if (additionalHardConstraints == null || additionalHardConstraints.isBlank()) {
+            return userMessage;
+        }
+        return userMessage + "\n\n## ADDITIONAL HARD CONSTRAINTS\n" + additionalHardConstraints.trim() + "\n";
     }
 
     @lombok.Data
@@ -468,13 +490,15 @@ public class OpenAIService {
 
         if (selectedCuisines != null && !selectedCuisines.isEmpty()) {
             sb.append("\n## CULTURAL FOOD PREFERENCES (HARD CONSTRAINT)\n");
-            sb.append("Culinary traditions (use authentic foods, ingredients, spices, and methods across the plan; mix within each day when multiple cuisines are selected): ");
+            sb.append("Culinary traditions (use authentic foods, ingredients, spices, and methods across the plan): ");
             sb.append(String.join(", ", selectedCuisines)).append("\n");
             sb.append("You MUST draw heavily from these traditions throughout the plan.\n\n");
+            sb.append("Meal-level hard rule: each meal/snack MUST be culturally coherent and mapped to exactly one selected cuisine.\n");
+            sb.append("Do NOT combine foods from different selected cuisines in a single meal.\n");
             sb.append("When 2+ cuisines are selected, each day is REQUIRED to include at least 2 different selected cuisines ");
             sb.append("across breakfast/lunch/dinner/snack. A single-cuisine day is invalid.\n");
-            sb.append("Use mixed day labels like 'Day X - Mixed: CuisineA + CuisineB'.\n");
-            sb.append("Map cuisines at meal level (for example: breakfast CuisineA, lunch CuisineB, dinner CuisineC, snack CuisineA/B).\n\n");
+            sb.append("Use day labels like 'Day X - Cuisine Rotation: CuisineA + CuisineB'.\n");
+            sb.append("Map cuisines at meal level (for example: breakfast CuisineA, lunch CuisineB, dinner CuisineC, snack CuisineA).\n\n");
 
             if (culturalFoods != null && !culturalFoods.isEmpty()) {
                 Map<String, List<CulturalFoodGroup>> byCulture = culturalFoods.stream()
@@ -528,8 +552,10 @@ public class OpenAIService {
         sb.append("each with meals (foods with fdcId and keyNutrients), dailyCalories, and macroBreakdown. ");
         sb.append("Also include top-level nutrientAudit, evidenceTags, macroBreakdown, and notes.\n");
         if (selectedCuisines != null && selectedCuisines.size() > 1) {
-            sb.append("Cuisine compliance check before finalizing JSON: for EACH day, verify meals/snacks represent at least 2 selected cuisines; ");
-            sb.append("if not, revise that day before returning output.\n");
+            sb.append("Cuisine compliance check before finalizing JSON: ");
+            sb.append("for EACH meal/snack, verify all foods align to one selected cuisine only (no cross-cuisine mixing); ");
+            sb.append("for EACH day, verify meals/snacks represent at least 2 selected cuisines overall; ");
+            sb.append("if not, revise before returning output.\n");
         }
         return sb.toString();
     }
@@ -589,6 +615,9 @@ public class OpenAIService {
         StringBuilder sb = new StringBuilder();
         sb.append("Generate replacement meals ONLY for removed slots in an existing plan.\n");
         sb.append("Do NOT regenerate the full plan. Keep nutrition style and cuisine consistency.\n");
+        sb.append("Cultural coherence rule: each replacement meal must map to exactly one selected cuisine and ");
+        sb.append("must not mix foods from different selected cuisines in the same meal.\n");
+        sb.append("If a slot's likely cuisine can be inferred from the original plan/day context, preserve that cuisine.\n");
         sb.append("Return ONLY JSON matching this schema:\n");
         sb.append("{\"replacements\":[{\"slotId\":\"slot-1\",\"meal\":{...meal schema...}}]}\n\n");
         sb.append("Use meal schema fields: name, foods[{fdcId,name,quantityGrams,keyNutrients}], calories, proteinGrams, carbsGrams, fatGrams.\n");

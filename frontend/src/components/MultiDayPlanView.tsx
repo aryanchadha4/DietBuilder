@@ -24,6 +24,7 @@ import {
   LayoutGrid,
   Trash2,
   RefreshCw,
+  BookmarkPlus,
 } from "lucide-react";
 
 interface MultiDayPlanViewProps {
@@ -41,6 +42,7 @@ interface MultiDayPlanViewProps {
   }) => Promise<void>;
   onReplaceRemovedMeals?: () => void;
   replaceRemovedLoading?: boolean;
+  onSaveMeal?: (ctx: { dayIndex: number | null; mealIndex: number }) => Promise<void>;
 }
 
 function MacroRing({
@@ -139,12 +141,16 @@ function MealCard({
   meal,
   onRejectFood,
   onRemoveMeal,
+  onSaveMeal,
   removeDisabled,
+  saveDisabled,
 }: {
   meal: Meal;
   onRejectFood?: (foodName: string, type: "PERMANENT" | "TEMPORARY", reason?: string) => void;
   onRemoveMeal?: () => void;
+  onSaveMeal?: () => void;
   removeDisabled?: boolean;
+  saveDisabled?: boolean;
 }) {
   return (
     <Card hover>
@@ -154,6 +160,17 @@ function MealCard({
           <span className="truncate">{meal.name}</span>
         </CardTitle>
         <div className="flex items-center gap-2 shrink-0">
+          {onSaveMeal && (
+            <button
+              type="button"
+              onClick={onSaveMeal}
+              disabled={saveDisabled}
+              className="inline-flex items-center justify-center rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 disabled:opacity-40"
+              title="Save this meal to your Saved Meals section"
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onRemoveMeal && (
             <button
               type="button"
@@ -297,9 +314,11 @@ export function MultiDayPlanView({
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [showOverview, setShowOverview] = useState(false);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const canRemoveMeal = Boolean(plan.id && onRemoveMeal);
+  const canSaveMeal = Boolean(plan.id && onSaveMeal);
 
   async function runRemoveMeal(
     key: string,
@@ -312,6 +331,16 @@ export function MultiDayPlanView({
       await onRemoveMeal({ dayIndex, mealIndex });
     } finally {
       setRemovingKey(null);
+    }
+  }
+
+  async function runSaveMeal(key: string, dayIndex: number | null, mealIndex: number) {
+    if (!onSaveMeal) return;
+    setSavingKey(key);
+    try {
+      await onSaveMeal({ dayIndex, mealIndex });
+    } finally {
+      setSavingKey(null);
     }
   }
 
@@ -371,7 +400,13 @@ export function MultiDayPlanView({
                     ? () => void runRemoveMeal(`legacy-${i}`, null, i)
                     : undefined
                 }
+                onSaveMeal={
+                  canSaveMeal
+                    ? () => void runSaveMeal(`legacy-${i}`, null, i)
+                    : undefined
+                }
                 removeDisabled={removingKey !== null}
+                saveDisabled={savingKey !== null}
               />
             ))}
           </div>
@@ -589,7 +624,18 @@ export function MultiDayPlanView({
                           )
                       : undefined
                   }
+                  onSaveMeal={
+                    canSaveMeal
+                      ? () =>
+                          void runSaveMeal(
+                            `d${selectedDayIdx}-m${mi}`,
+                            selectedDayIdx,
+                            mi
+                          )
+                      : undefined
+                  }
                   removeDisabled={removingKey !== null}
+                  saveDisabled={savingKey !== null}
                 />
               ))}
 

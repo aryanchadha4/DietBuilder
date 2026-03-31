@@ -10,6 +10,7 @@ import {
   Sparkles,
   ListTodo,
   ClipboardList,
+  Bookmark,
   Menu,
   X,
   LogOut,
@@ -23,6 +24,7 @@ const links = [
   { href: "/profile", label: "Profile", icon: User },
   { href: "/recommend", label: "Recommend", icon: Sparkles },
   { href: "/plans", label: "Plans", icon: ClipboardList },
+  { href: "/saved-meals", label: "Saved Meals", icon: Bookmark },
   { href: "/tasks", label: "Tasks", icon: ListTodo },
 ];
 

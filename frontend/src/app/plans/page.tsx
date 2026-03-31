@@ -173,6 +173,26 @@ function PlansContent() {
     }
   }
 
+  async function handleSaveMeal({
+    dayIndex,
+    mealIndex,
+  }: {
+    dayIndex: number | null;
+    mealIndex: number;
+  }) {
+    if (!selectedPlan?.id) return;
+    try {
+      await api.savedMeals.create(
+        selectedPlan.id,
+        mealIndex,
+        dayIndex ?? undefined
+      );
+      toast.success("Meal saved");
+    } catch {
+      toast.error("Failed to save meal");
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-4">
@@ -245,6 +265,7 @@ function PlansContent() {
           onRemoveMeal={handleRemoveMeal}
           onReplaceRemovedMeals={handleReplaceRemovedMeals}
           replaceRemovedLoading={regenerating}
+          onSaveMeal={handleSaveMeal}
         />
       </div>
     );
