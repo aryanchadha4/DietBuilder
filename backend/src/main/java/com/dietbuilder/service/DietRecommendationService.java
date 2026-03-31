@@ -445,12 +445,13 @@ public class DietRecommendationService {
         }
         int remaining = total - existing.getDays().size();
         int firstDay = existing.getDays().size() + 1;
-        int chunk;
-        if (batchSize != null && batchSize > 0) {
-            chunk = Math.min(batchSize, remaining);
-        } else {
-            chunk = remaining;
-        }
+        int effectiveBatchSize =
+                (batchSize != null && batchSize > 0)
+                        ? batchSize
+                        : (existing.getSyncBatchSize() != null && existing.getSyncBatchSize() > 0
+                                ? existing.getSyncBatchSize()
+                                : remaining);
+        int chunk = Math.min(effectiveBatchSize, remaining);
         User user = getCurrentUser();
         List<String> cuisines = normalizeCuisineList(existing.getCuisinePreferences());
         List<String> disliked = foodPreferenceService.getActiveDislikedFoodNames(user.getId());
