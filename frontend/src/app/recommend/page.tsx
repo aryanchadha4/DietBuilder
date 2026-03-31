@@ -153,7 +153,8 @@ function RecommendContent() {
 
   async function runAutoCompletion(
     initialPlan: DietPlan,
-    batchOrNull: number | null
+    batchOrNull: number | null,
+    targetTotalDays: number
   ) {
     abortProgressivePipeline();
     const ac = new AbortController();
@@ -162,6 +163,7 @@ function RecommendContent() {
     try {
       const final = await completePartialPlanUntilDone(initialPlan, batchOrNull, {
         signal: ac.signal,
+        targetTotalDays,
         onProgress: (p) => {
           setCurrentPlan(p);
           setPastPlans((prev) =>
@@ -223,7 +225,7 @@ function RecommendContent() {
       setCurrentPlan(plan);
 
       const have = plan.days?.length ?? 0;
-      const total = plan.totalDays ?? 0;
+      const total = Math.max(plan.totalDays ?? 0, numDays);
       const blocked =
         plan.safetyAlerts?.some((a) => a.severity === "BLOCK") ?? false;
 
@@ -260,7 +262,7 @@ function RecommendContent() {
             ? Math.min(syncDays, numDays)
             : null);
         const batchOrNull = batch != null && batch > 0 ? batch : null;
-        void runAutoCompletion(plan, batchOrNull);
+        void runAutoCompletion(plan, batchOrNull, total);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to generate plan";

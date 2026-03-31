@@ -3,6 +3,8 @@ import { api, DietPlan } from "./api";
 export type CompletePartialProgress = {
   onProgress?: (plan: DietPlan) => void;
   signal?: AbortSignal;
+  /** Optional fallback target when API responses omit or underreport totalDays. */
+  targetTotalDays?: number;
 };
 
 /**
@@ -16,13 +18,14 @@ export async function completePartialPlanUntilDone(
 ): Promise<DietPlan> {
   let next = initialPlan;
   const signal = options?.signal;
+  const fallbackTarget = options?.targetTotalDays ?? 0;
 
-  while ((next.days?.length ?? 0) < (next.totalDays ?? 0)) {
+  while ((next.days?.length ?? 0) < Math.max(next.totalDays ?? 0, fallbackTarget)) {
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
     const prevLen = next.days?.length ?? 0;
-    const total = next.totalDays ?? 0;
+    const total = Math.max(next.totalDays ?? 0, fallbackTarget);
     if (!next.id || prevLen >= total) break;
 
     const opts =
@@ -31,6 +34,9 @@ export async function completePartialPlanUntilDone(
         : { signal };
 
     next = await api.dietPlans.completeRemainingDays(next.id, opts);
+    if ((next.totalDays ?? 0) < total) {
+      next = { ...next, totalDays: total };
+    }
 
     if (signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
