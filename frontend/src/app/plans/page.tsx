@@ -19,6 +19,8 @@ import {
   Filter,
   ShieldBan,
   RefreshCw,
+  Star,
+  Trash2,
 } from "lucide-react";
 import { Suspense } from "react";
 
@@ -38,6 +40,9 @@ function PlansContent() {
     []
   );
   const [regenerating, setRegenerating] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingDraftValue, setRatingDraftValue] = useState(0);
+  const [ratingDraftNote, setRatingDraftNote] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +56,12 @@ function PlansContent() {
       .catch(() => toast.error("Failed to load data"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!selectedPlan?.id) return;
+    setRatingDraftValue(selectedPlan.userRating ?? 0);
+    setRatingDraftNote(selectedPlan.ratingFeedback ?? "");
+  }, [selectedPlan?.id]);
 
   const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
@@ -173,6 +184,74 @@ function PlansContent() {
     }
   }
 
+  async function handleDeletePlan() {
+    if (!selectedPlan?.id) return;
+    if (
+      !confirm(
+        "Delete this plan permanently? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.dietPlans.delete(selectedPlan.id);
+      setPlans((prev) => prev.filter((p) => p.id !== selectedPlan.id));
+      setSelectedPlan(null);
+      setRejectedThisSession([]);
+      toast.success("Plan deleted");
+    } catch (e: unknown) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to delete plan"
+      );
+    }
+  }
+
+  async function handleSaveRating() {
+    if (!selectedPlan?.id) return;
+    if (ratingDraftValue < 1 || ratingDraftValue > 5) {
+      toast.error("Choose a rating from 1 to 5 stars");
+      return;
+    }
+    setRatingSubmitting(true);
+    try {
+      const updated = await api.dietPlans.rate(selectedPlan.id, {
+        rating: ratingDraftValue,
+        feedback: ratingDraftNote.trim() || undefined,
+      });
+      setSelectedPlan(updated);
+      setPlans((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
+      toast.success("Rating saved — future plans will use this feedback");
+    } catch (e: unknown) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to save rating"
+      );
+    } finally {
+      setRatingSubmitting(false);
+    }
+  }
+
+  async function handleSaveMeal({
+    dayIndex,
+    mealIndex,
+  }: {
+    dayIndex: number | null;
+    mealIndex: number;
+  }) {
+    if (!selectedPlan?.id) return;
+    try {
+      await api.savedMeals.create(
+        selectedPlan.id,
+        mealIndex,
+        dayIndex ?? undefined
+      );
+      toast.success("Meal saved");
+    } catch {
+      toast.error("Failed to save meal");
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-4">
@@ -187,16 +266,85 @@ function PlansContent() {
     const profile = profileMap.get(selectedPlan.profileId);
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <button
-          onClick={() => {
-            setSelectedPlan(null);
-            setRejectedThisSession([]);
-          }}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to all plans
-        </button>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedPlan(null);
+              setRejectedThisSession([]);
+            }}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to all plans
+          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+            onClick={handleDeletePlan}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete plan
+          </Button>
+        </div>
+        <div className="mb-6 rounded-xl border border-border bg-card/50 p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-foreground">
+              Rate this plan
+            </span>
+            <span className="text-xs text-muted-foreground">
+              (1–5; used to guide future recommendations)
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRatingDraftValue(n)}
+                className="p-1 rounded-md hover:bg-secondary transition-colors"
+                aria-label={`${n} star${n === 1 ? "" : "s"}`}
+              >
+                <Star
+                  className={`h-7 w-7 ${
+                    n <= ratingDraftValue
+                      ? "fill-amber-400 text-amber-500"
+                      : "text-muted-foreground/40"
+                  }`}
+                />
+              </button>
+            ))}
+            {selectedPlan.userRating != null && (
+              <Badge variant="default" className="ml-2">
+                Saved: {selectedPlan.userRating}/5
+              </Badge>
+            )}
+          </div>
+          <label className="block">
+            <span className="text-xs text-muted-foreground">
+              Optional note
+            </span>
+            <textarea
+              value={ratingDraftNote}
+              onChange={(e) => setRatingDraftNote(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              placeholder="What worked or didn’t?"
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            />
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            loading={ratingSubmitting}
+            onClick={handleSaveRating}
+            disabled={ratingDraftValue < 1}
+          >
+            Save rating
+          </Button>
+        </div>
         {profile && (
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
@@ -245,6 +393,8 @@ function PlansContent() {
           onRemoveMeal={handleRemoveMeal}
           onReplaceRemovedMeals={handleReplaceRemovedMeals}
           replaceRemovedLoading={regenerating}
+          onSaveMeal={handleSaveMeal}
+          onGenerateGroceryList={api.dietPlans.groceryList}
         />
       </div>
     );

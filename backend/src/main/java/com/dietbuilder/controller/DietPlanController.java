@@ -44,6 +44,32 @@ public class DietPlanController {
         return recommendationService.getAllDietPlans();
     }
 
+    @GetMapping("/diet-plans/{planId}/grocery-list")
+    public ResponseEntity<GroceryListResponse> getGroceryList(@PathVariable String planId) {
+        DietRecommendationService.GroceryListResult result = recommendationService.generateGroceryList(planId);
+        GroceryListResponse response = new GroceryListResponse();
+        response.setPlanId(result.planId());
+        response.setTotalItems(result.foods().size());
+        response.setFoods(result.foods());
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/diet-plans/{planId}")
+    public ResponseEntity<Void> deletePlan(@PathVariable String planId) {
+        recommendationService.deletePlan(planId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/diet-plans/{planId}/rating")
+    public ResponseEntity<DietPlan> ratePlan(
+            @PathVariable String planId,
+            @RequestBody PlanRatingRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        return ResponseEntity.ok(recommendationService.ratePlan(planId, request.getRating(), request.getFeedback()));
+    }
+
     @DeleteMapping("/diet-plans/{planId}/meals")
     public DietPlan removeMeal(
             @PathVariable String planId,
@@ -71,5 +97,19 @@ public class DietPlanController {
     @lombok.Data
     public static class RegenerateRemovedRequest {
         private List<String> rejectedFoods;
+    }
+
+    @lombok.Data
+    public static class GroceryListResponse {
+        private String planId;
+        private int totalItems;
+        private List<String> foods;
+    }
+
+    @lombok.Data
+    public static class PlanRatingRequest {
+        /** 1-5 inclusive */
+        private int rating;
+        private String feedback;
     }
 }

@@ -91,6 +91,9 @@ export interface Meal {
   proteinGrams: number;
   carbsGrams: number;
   fatGrams: number;
+  fiberGrams?: number;
+  micronutrients?: Record<string, number>;
+  rationale?: string;
 }
 
 export interface MacroBreakdown {
@@ -154,6 +157,12 @@ export interface RemovedMealSlot {
   removedAt?: string;
 }
 
+export interface GroceryList {
+  planId: string;
+  totalItems: number;
+  foods: string[];
+}
+
 export interface DietPlan {
   id?: string;
   profileId: string;
@@ -180,6 +189,11 @@ export interface DietPlan {
   /** Culture slugs used when this plan was generated (e.g. south-asian). */
   cuisinePreferences?: string[];
   removedMealSlots?: RemovedMealSlot[];
+
+  /** 1-5 user rating; unset if not rated */
+  userRating?: number;
+  ratingFeedback?: string;
+  ratedAt?: string;
 
   createdAt?: string;
 }
@@ -351,6 +365,18 @@ export interface FoodPreference {
   expiresAt?: string;
 }
 
+export interface SavedMeal {
+  id?: string;
+  userId?: string;
+  profileId?: string;
+  sourcePlanId?: string;
+  sourceDayIndex?: number | null;
+  sourceMealIndex?: number | null;
+  meal: Meal;
+  tags?: string[];
+  createdAt?: string;
+}
+
 export interface RegenerateRequest {
   parentPlanId: string;
   rejectedFoods: string[];
@@ -360,6 +386,11 @@ export interface RegenerateRequest {
 
 export interface RegenerateRemovedRequest {
   rejectedFoods?: string[];
+}
+
+export interface PlanRatingRequest {
+  rating: number;
+  feedback?: string;
 }
 
 // ── API Client ──
@@ -447,6 +478,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    groceryList: (planId: string) =>
+      request<GroceryList>(`/diet-plans/${planId}/grocery-list`),
+    delete: (planId: string) =>
+      request<void>(`/diet-plans/${planId}`, { method: "DELETE" }),
+    rate: (planId: string, body: PlanRatingRequest) =>
+      request<DietPlan>(`/diet-plans/${planId}/rating`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
   },
 
   foodPreferences: {
@@ -465,6 +505,25 @@ export const api = {
       }),
     resetTemporary: () =>
       request<void>("/food-preferences/reset-temporary", { method: "DELETE" }),
+  },
+
+  savedMeals: {
+    list: (profileId?: string) =>
+      request<SavedMeal[]>(
+        `/saved-meals${profileId ? `?profileId=${encodeURIComponent(profileId)}` : ""}`
+      ),
+    create: (planId: string, mealIndex: number, dayIndex?: number) =>
+      request<SavedMeal>("/saved-meals", {
+        method: "POST",
+        body: JSON.stringify({ planId, mealIndex, dayIndex }),
+      }),
+    delete: (id: string) =>
+      request<void>(`/saved-meals/${id}`, { method: "DELETE" }),
+    insert: (savedMealId: string, planId: string, mealIndex: number, dayIndex?: number) =>
+      request<DietPlan>(`/saved-meals/${savedMealId}/insert`, {
+        method: "POST",
+        body: JSON.stringify({ planId, mealIndex, dayIndex }),
+      }),
   },
 
   foods: {

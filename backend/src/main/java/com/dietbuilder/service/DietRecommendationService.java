@@ -10,13 +10,18 @@ import com.dietbuilder.repository.DietPlanRepository;
 import com.dietbuilder.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -156,9 +161,34 @@ public class DietRecommendationService {
         List<DietPlan.ConflictNote> conflicts = conflictResolutionService.resolve(sources);
         long conflictMs = System.currentTimeMillis() - tConflictStart;
 
+        String ratingFeedbackContext = buildRatingFeedbackContext(profileId);
+
         log.info("Generating {}-day diet plan via OpenAI for profile {}", numDays, profileId);
         long tOpenAiStart = System.currentTimeMillis();
-        DietPlan plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts);
+        DietPlan plan = openAIService.generateDietPlanWithSources(profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts, ratingFeedbackContext);
+        CulturalValidationResult culturalValidation = validateCulturalCoherence(plan, cuisineList, culturalFoods);
+        if (!culturalValidation.valid()) {
+            log.warn("recommendation.culture_validation failed profileId={} violations={}", profileId, culturalValidation.violations());
+            String retryConstraints = buildCulturalRetryConstraints(cuisineList, culturalValidation.violations());
+            String combinedRetry = combineAdditionalHardConstraints(ratingFeedbackContext, retryConstraints);
+            DietPlan retriedPlan = openAIService.generateDietPlanWithSources(
+                    profile, cuisineList, culturalFoods, numDays, allDisliked, sources, conflicts, combinedRetry);
+            CulturalValidationResult retryValidation = validateCulturalCoherence(retriedPlan, cuisineList, culturalFoods);
+            if (retryValidation.valid()) {
+                log.info("recommendation.culture_validation retry_succeeded profileId={}", profileId);
+                plan = retriedPlan;
+            } else {
+                log.warn("recommendation.culture_validation retry_failed profileId={} violations={}", profileId, retryValidation.violations());
+                plan = retriedPlan;
+                String warning = "Cultural coherence warning: one or more meals may mix cuisines or be off-cuisine. "
+                        + "Validation issues: " + String.join("; ", retryValidation.violations());
+                plan.setNotes(plan.getNotes() == null || plan.getNotes().isBlank()
+                        ? warning
+                        : plan.getNotes() + "\n\n" + warning);
+            }
+        } else {
+            log.info("recommendation.culture_validation passed profileId={}", profileId);
+        }
         long openAiMs = System.currentTimeMillis() - tOpenAiStart;
         plan.setProfileId(profileId);
         plan.setCuisinePreferences(new ArrayList<>(cuisineList));
@@ -276,14 +306,7 @@ public class DietRecommendationService {
 
     public DietPlan regeneratePlan(String profileId,
                                     com.dietbuilder.controller.DietPlanController.RegenerateRequest request) {
-        // Store rejected foods as temporary dislikes
-        if (request.getRejectedFoods() != null) {
-            for (String food : request.getRejectedFoods()) {
-                foodPreferenceService.addDislike(food,
-                        com.dietbuilder.model.FoodPreference.PreferenceType.TEMPORARY,
-                        "Rejected from plan", request.getParentPlanId());
-            }
-        }
+        rememberRejectedFoods(request.getRejectedFoods(), "Rejected from plan regeneration", request.getParentPlanId());
 
         // Determine number of days from parent plan or request
         int numDays = request.getDays() > 0 ? request.getDays() : 14;
@@ -329,6 +352,7 @@ public class DietRecommendationService {
         }
 
         List<String> rejectedFoods = request != null ? request.getRejectedFoods() : null;
+        rememberRejectedFoods(rejectedFoods, "Rejected while regenerating removed meals", planId);
         List<OpenAIService.ReplacementMeal> replacements = openAIService.generateReplacementMeals(
                 profile, plan, removedSlots, rejectedFoods);
         if (replacements.size() != removedSlots.size()) {
@@ -366,6 +390,201 @@ public class DietRecommendationService {
         return dietPlanRepository.findByProfileIdOrderByCreatedAtDesc(profileId);
     }
 
+    private static final int MAX_RATING_FEEDBACK_CHARS = 2000;
+    private static final int RATED_PLANS_FOR_CONTEXT = 15;
+    private static final int MAX_FEEDBACK_NAMES_PER_BUCKET = 25;
+    private static final int MAX_LOW_RATING_NOTES = 5;
+
+    /**
+     * Hard-deletes a plan after verifying the current user owns its profile.
+     */
+    public void deletePlan(String planId) {
+        DietPlan plan = dietPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
+        getProfile(plan.getProfileId());
+        dietPlanRepository.deleteById(planId);
+    }
+
+    /**
+     * Saves a 1-5 star rating (and optional feedback) for a plan.
+     */
+    public DietPlan ratePlan(String planId, int rating, String feedback) {
+        if (rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("Rating must be between 1 and 5");
+        }
+        DietPlan plan = dietPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
+        getProfile(plan.getProfileId());
+        plan.setUserRating(rating);
+        if (feedback != null) {
+            String f = feedback.trim();
+            if (f.length() > MAX_RATING_FEEDBACK_CHARS) {
+                f = f.substring(0, MAX_RATING_FEEDBACK_CHARS);
+            }
+            plan.setRatingFeedback(f.isEmpty() ? null : f);
+        } else {
+            plan.setRatingFeedback(null);
+        }
+        plan.setRatedAt(Instant.now());
+        return dietPlanRepository.save(plan);
+    }
+
+    /**
+     * Builds a compact block injected into plan generation prompts from recent rated plans for this profile.
+     */
+    private String buildRatingFeedbackContext(String profileId) {
+        List<DietPlan> rated = dietPlanRepository.findByProfileIdAndUserRatingIsNotNullOrderByRatedAtDesc(
+                profileId, PageRequest.of(0, RATED_PLANS_FOR_CONTEXT));
+        if (rated.isEmpty()) {
+            return null;
+        }
+        double avg = rated.stream()
+                .mapToInt(p -> p.getUserRating() != null ? p.getUserRating() : 0)
+                .average().orElse(0);
+        LinkedHashSet<String> preferred = new LinkedHashSet<>();
+        LinkedHashSet<String> avoided = new LinkedHashSet<>();
+        List<String> lowRatingNotes = new ArrayList<>();
+        for (DietPlan p : rated) {
+            Integer r = p.getUserRating();
+            if (r == null) {
+                continue;
+            }
+            if (r >= 4) {
+                collectMealAndFoodNamesForFeedback(p, preferred);
+            } else if (r <= 2) {
+                collectMealAndFoodNamesForFeedback(p, avoided);
+                if (p.getRatingFeedback() != null && !p.getRatingFeedback().isBlank()) {
+                    String note = p.getRatingFeedback().trim().replaceAll("\\s+", " ");
+                    if (note.length() > 120) {
+                        note = note.substring(0, 117) + "...";
+                    }
+                    lowRatingNotes.add(note);
+                }
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("USER PLAN RATING FEEDBACK (from recent saved plans for this profile; soft preferences only — ")
+                .append("never override medical needs, dietary restrictions, calorie targets, or safety rules).\n");
+        sb.append(String.format("- Recent rated plans sampled: %d; average rating (1-5): %.1f%n", rated.size(), avg));
+        if (!preferred.isEmpty()) {
+            sb.append("- User seemed to enjoy these meals/foods (from highly rated plans — prefer similar ideas and variety, not boring repetition): ");
+            sb.append(String.join(", ", firstN(preferred, MAX_FEEDBACK_NAMES_PER_BUCKET)));
+            sb.append("\n");
+        }
+        if (!avoided.isEmpty()) {
+            sb.append("- Often appeared in poorly rated plans (avoid repeating these where reasonable alternatives exist): ");
+            sb.append(String.join(", ", firstN(avoided, MAX_FEEDBACK_NAMES_PER_BUCKET)));
+            sb.append("\n");
+        }
+        if (!lowRatingNotes.isEmpty()) {
+            int n = Math.min(MAX_LOW_RATING_NOTES, lowRatingNotes.size());
+            sb.append("- Notes from low ratings: ");
+            sb.append(String.join(" | ", lowRatingNotes.subList(0, n)));
+            sb.append("\n");
+        }
+        sb.append("Treat the above as guidance alongside disliked-food exclusions and expert evidence.\n");
+        return sb.toString();
+    }
+
+    private static void collectMealAndFoodNamesForFeedback(DietPlan plan, Set<String> out) {
+        if (plan.getDays() != null && !plan.getDays().isEmpty()) {
+            for (DietPlan.DayPlan day : plan.getDays()) {
+                if (day == null || day.getMeals() == null) {
+                    continue;
+                }
+                for (DietPlan.Meal m : day.getMeals()) {
+                    addMealFoodNames(m, out);
+                }
+            }
+        } else if (plan.getMeals() != null) {
+            for (DietPlan.Meal m : plan.getMeals()) {
+                addMealFoodNames(m, out);
+            }
+        }
+    }
+
+    private static void addMealFoodNames(DietPlan.Meal m, Set<String> out) {
+        if (m == null) {
+            return;
+        }
+        if (m.getName() != null && !m.getName().isBlank()) {
+            out.add(m.getName().trim());
+        }
+        if (m.getFoods() != null) {
+            for (DietPlan.MealFood f : m.getFoods()) {
+                if (f != null && f.getName() != null && !f.getName().isBlank()) {
+                    out.add(f.getName().trim());
+                }
+            }
+        }
+    }
+
+    private static List<String> firstN(Set<String> source, int max) {
+        List<String> list = new ArrayList<>(source);
+        if (list.size() <= max) {
+            return list;
+        }
+        return list.subList(0, max);
+    }
+
+    private static String combineAdditionalHardConstraints(String first, String second) {
+        boolean a = first != null && !first.isBlank();
+        boolean b = second != null && !second.isBlank();
+        if (a && b) {
+            return first + "\n\n" + second;
+        }
+        if (a) {
+            return first;
+        }
+        if (b) {
+            return second;
+        }
+        return null;
+    }
+
+    public GroceryListResult generateGroceryList(String planId) {
+        DietPlan plan = dietPlanRepository.findById(planId)
+                .orElseThrow(() -> new RuntimeException("Plan not found: " + planId));
+        // Access check: reuses existing profile ownership validation.
+        getProfile(plan.getProfileId());
+
+        Map<String, String> dedupedFoods = new HashMap<>();
+        if (plan.getDays() != null && !plan.getDays().isEmpty()) {
+            for (DietPlan.DayPlan day : plan.getDays()) {
+                collectMealFoods(day.getMeals(), dedupedFoods);
+            }
+        } else {
+            collectMealFoods(plan.getMeals(), dedupedFoods);
+        }
+
+        List<String> foods = dedupedFoods.values().stream()
+                .sorted(Comparator.comparing(s -> s.toLowerCase(Locale.ROOT)))
+                .toList();
+        return new GroceryListResult(plan.getId(), foods);
+    }
+
+    private void collectMealFoods(List<DietPlan.Meal> meals, Map<String, String> dedupedFoods) {
+        if (meals == null) return;
+        for (DietPlan.Meal meal : meals) {
+            if (meal == null || meal.getFoods() == null) continue;
+            for (DietPlan.MealFood food : meal.getFoods()) {
+                if (food == null || food.getName() == null) continue;
+                String displayName = food.getName().trim();
+                if (displayName.isBlank()) continue;
+                String normalized = normalizeFoodName(displayName);
+                dedupedFoods.putIfAbsent(normalized, displayName);
+            }
+        }
+    }
+
+    private String normalizeFoodName(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    public record GroceryListResult(String planId, List<String> foods) {}
+
     public List<DietPlan> getAllDietPlans() {
         User user = getCurrentUser();
         List<UserProfile> profiles = profileRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
@@ -398,6 +617,7 @@ public class DietRecommendationService {
                 throw new IllegalArgumentException("Invalid mealIndex: " + mealIndex);
             }
             DietPlan.Meal removedMeal = day.getMeals().get(mealIndex);
+            rememberRejectedMeal(removedMeal, planId);
             plan.getRemovedMealSlots().add(buildRemovedMealSlot(dIdx, mealIndex, removedMeal));
             day.getMeals().remove(mealIndex);
             recomputeDayPlan(day);
@@ -407,6 +627,7 @@ public class DietRecommendationService {
                 throw new IllegalArgumentException("Invalid mealIndex: " + mealIndex);
             }
             DietPlan.Meal removedMeal = plan.getMeals().get(mealIndex);
+            rememberRejectedMeal(removedMeal, planId);
             plan.getRemovedMealSlots().add(buildRemovedMealSlot(null, mealIndex, removedMeal));
             plan.getMeals().remove(mealIndex);
             recomputeLegacyPlanFromMeals(plan);
@@ -531,5 +752,172 @@ public class DietRecommendationService {
             mb.setFatPercent(0);
         }
         plan.setMacroBreakdown(mb);
+    }
+
+    private CulturalValidationResult validateCulturalCoherence(DietPlan plan, List<String> selectedCuisines,
+                                                               List<CulturalFoodGroup> culturalFoods) {
+        if (selectedCuisines == null || selectedCuisines.size() < 2 || culturalFoods == null || culturalFoods.isEmpty()) {
+            return CulturalValidationResult.success();
+        }
+        Map<String, Set<String>> cuisineFoodLexicon = buildCuisineFoodLexicon(selectedCuisines, culturalFoods);
+        if (cuisineFoodLexicon.isEmpty()) {
+            return CulturalValidationResult.success();
+        }
+
+        List<String> violations = new ArrayList<>();
+        List<DietPlan.DayPlan> days = plan.getDays() != null && !plan.getDays().isEmpty()
+                ? plan.getDays()
+                : buildFallbackSingleDay(plan);
+
+        for (int dayIdx = 0; dayIdx < days.size(); dayIdx++) {
+            DietPlan.DayPlan day = days.get(dayIdx);
+            Set<String> cuisinesUsedInDay = new LinkedHashSet<>();
+            List<DietPlan.Meal> meals = day.getMeals() != null ? day.getMeals() : List.of();
+            for (int mealIdx = 0; mealIdx < meals.size(); mealIdx++) {
+                DietPlan.Meal meal = meals.get(mealIdx);
+                Set<String> matchingCuisines = matchingCuisinesForMeal(meal, cuisineFoodLexicon);
+                String mealName = meal.getName() != null ? meal.getName() : "Meal#" + (mealIdx + 1);
+                if (matchingCuisines.isEmpty()) {
+                    violations.add("Day " + (dayIdx + 1) + " " + mealName + ": off-cuisine (no selected cuisine match)");
+                } else if (matchingCuisines.size() > 1) {
+                    violations.add("Day " + (dayIdx + 1) + " " + mealName + ": mixed-cuisine meal " + matchingCuisines);
+                } else {
+                    cuisinesUsedInDay.add(matchingCuisines.iterator().next());
+                }
+            }
+            if (cuisinesUsedInDay.size() < 2) {
+                violations.add("Day " + (dayIdx + 1) + ": insufficient selected-cuisine diversity across meals");
+            }
+        }
+        return violations.isEmpty() ? CulturalValidationResult.success() : CulturalValidationResult.failure(violations);
+    }
+
+    private List<DietPlan.DayPlan> buildFallbackSingleDay(DietPlan plan) {
+        DietPlan.DayPlan fallback = new DietPlan.DayPlan();
+        fallback.setDayNumber(1);
+        fallback.setMeals(plan.getMeals() != null ? plan.getMeals() : List.of());
+        return List.of(fallback);
+    }
+
+    private Map<String, Set<String>> buildCuisineFoodLexicon(List<String> selectedCuisines,
+                                                              List<CulturalFoodGroup> culturalFoods) {
+        Map<String, Set<String>> out = new HashMap<>();
+        Set<String> selected = selectedCuisines.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(this::normalizeText)
+                .collect(java.util.stream.Collectors.toSet());
+        for (CulturalFoodGroup group : culturalFoods) {
+            if (group.getCulture() == null || group.getFoods() == null) continue;
+            String culture = normalizeText(group.getCulture());
+            if (!selected.contains(culture)) continue;
+            Set<String> foods = out.computeIfAbsent(culture, k -> new LinkedHashSet<>());
+            for (CulturalFoodGroup.FoodEquivalent fe : group.getFoods()) {
+                if (fe.getName() == null || fe.getName().isBlank()) continue;
+                foods.add(normalizeText(fe.getName()));
+            }
+        }
+        return out;
+    }
+
+    private Set<String> matchingCuisinesForMeal(DietPlan.Meal meal, Map<String, Set<String>> cuisineFoodLexicon) {
+        Set<String> matched = new LinkedHashSet<>();
+        List<String> mealFoodNames = new ArrayList<>();
+        if (meal.getFoods() != null) {
+            for (DietPlan.MealFood food : meal.getFoods()) {
+                if (food.getName() != null && !food.getName().isBlank()) {
+                    mealFoodNames.add(normalizeText(food.getName()));
+                }
+            }
+        }
+        if (mealFoodNames.isEmpty() && meal.getName() != null && !meal.getName().isBlank()) {
+            mealFoodNames.add(normalizeText(meal.getName()));
+        }
+        for (Map.Entry<String, Set<String>> entry : cuisineFoodLexicon.entrySet()) {
+            String cuisine = entry.getKey();
+            Set<String> cuisineFoods = entry.getValue();
+            boolean hasMatch = mealFoodNames.stream().anyMatch(mealFood ->
+                    cuisineFoods.stream().anyMatch(cultureFood -> culturallyMatches(mealFood, cultureFood)));
+            if (hasMatch) {
+                matched.add(cuisine);
+            }
+        }
+        return matched;
+    }
+
+    private String buildCulturalRetryConstraints(List<String> selectedCuisines, List<String> violations) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("RETRY DUE TO CULTURAL VALIDATION FAILURE.\n");
+        sb.append("Selected cuisines: ").append(String.join(", ", selectedCuisines)).append(".\n");
+        sb.append("Hard rules:\n");
+        sb.append("1) Each meal/snack must map to exactly ONE selected cuisine.\n");
+        sb.append("2) Do not mix ingredients from multiple selected cuisines in one meal.\n");
+        sb.append("3) If 2+ cuisines are selected, each day must include at least 2 selected cuisines across meals.\n");
+        sb.append("4) Ensure each meal is authentic to its assigned cuisine using ingredients and methods from that cuisine.\n");
+        if (violations != null && !violations.isEmpty()) {
+            sb.append("Previous violations to avoid:\n");
+            for (String violation : violations) {
+                sb.append("- ").append(violation).append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private boolean culturallyMatches(String mealFoodName, String cultureFoodName) {
+        if (mealFoodName.equals(cultureFoodName)) return true;
+        if (mealFoodName.length() < 4 || cultureFoodName.length() < 4) return false;
+        return mealFoodName.contains(cultureFoodName) || cultureFoodName.contains(mealFoodName);
+    }
+
+    private String normalizeText(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9 ]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private record CulturalValidationResult(boolean valid, List<String> violations) {
+        static CulturalValidationResult success() {
+            return new CulturalValidationResult(true, List.of());
+        }
+
+        static CulturalValidationResult failure(List<String> violations) {
+            return new CulturalValidationResult(false, violations == null ? List.of() : violations);
+        }
+    }
+
+    private void rememberRejectedMeal(DietPlan.Meal meal, String sourcePlanId) {
+        if (meal == null) {
+            return;
+        }
+        List<String> rejected = new ArrayList<>();
+        if (meal.getName() != null && !meal.getName().isBlank()) {
+            rejected.add(meal.getName().trim());
+        }
+        if (meal.getFoods() != null) {
+            for (DietPlan.MealFood food : meal.getFoods()) {
+                if (food != null && food.getName() != null && !food.getName().isBlank()) {
+                    rejected.add(food.getName().trim());
+                }
+            }
+        }
+        rememberRejectedFoods(rejected, "Removed from recommended plan", sourcePlanId);
+    }
+
+    private void rememberRejectedFoods(List<String> rejectedFoods, String reason, String sourcePlanId) {
+        if (rejectedFoods == null || rejectedFoods.isEmpty()) {
+            return;
+        }
+        Set<String> uniqueFoods = rejectedFoods.stream()
+                .filter(food -> food != null && !food.isBlank())
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        for (String food : uniqueFoods) {
+            foodPreferenceService.addDislike(
+                    food,
+                    com.dietbuilder.model.FoodPreference.PreferenceType.TEMPORARY,
+                    reason,
+                    sourcePlanId
+            );
+        }
     }
 }

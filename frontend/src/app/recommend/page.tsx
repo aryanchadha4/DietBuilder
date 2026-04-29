@@ -290,6 +290,22 @@ function RecommendContent() {
     }
   }
 
+  async function handleSaveMeal({
+    dayIndex,
+    mealIndex,
+  }: {
+    dayIndex: number | null;
+    mealIndex: number;
+  }) {
+    if (!currentPlan?.id) return;
+    try {
+      await api.savedMeals.create(currentPlan.id, mealIndex, dayIndex ?? undefined);
+      toast.success("Meal saved");
+    } catch {
+      toast.error("Failed to save meal");
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-4">
@@ -507,6 +523,8 @@ function RecommendContent() {
             onRemoveMeal={handleRemoveMeal}
             onReplaceRemovedMeals={handleReplaceRemovedMeals}
             replaceRemovedLoading={regenerating}
+            onSaveMeal={handleSaveMeal}
+            onGenerateGroceryList={api.dietPlans.groceryList}
           />
           <AuditLogViewer log={auditLog} />
         </div>
