@@ -199,8 +199,8 @@ export default function AdminSourcesPage() {
                   {source.publicationDate ? ` • ${source.publicationDate}` : ""}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  {source.sourceType && <Badge variant="secondary">{source.sourceType}</Badge>}
-                  <Badge variant={source.active ? "success" : "outline"}>
+                  {source.sourceType && <Badge variant="default">{source.sourceType}</Badge>}
+                  <Badge variant={source.active ? "success" : "default"}>
                     {source.active ? "Active" : "Inactive"}
                   </Badge>
                 </div>

@@ -61,6 +61,14 @@ public class DietPlan {
     private String parentPlanId;
     private int version = 1;
 
+    /** User rating 1-5 for this plan; null if not rated. */
+    private Integer userRating;
+
+    /** Optional short free-text feedback with the rating. */
+    private String ratingFeedback;
+
+    private Instant ratedAt;
+
     @CreatedDate
     private Instant createdAt;
 

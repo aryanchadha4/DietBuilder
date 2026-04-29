@@ -524,6 +524,7 @@ function RecommendContent() {
             onReplaceRemovedMeals={handleReplaceRemovedMeals}
             replaceRemovedLoading={regenerating}
             onSaveMeal={handleSaveMeal}
+            onGenerateGroceryList={api.dietPlans.groceryList}
           />
           <AuditLogViewer log={auditLog} />
         </div>

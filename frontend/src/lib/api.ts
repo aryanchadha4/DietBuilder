@@ -190,6 +190,11 @@ export interface DietPlan {
   cuisinePreferences?: string[];
   removedMealSlots?: RemovedMealSlot[];
 
+  /** 1-5 user rating; unset if not rated */
+  userRating?: number;
+  ratingFeedback?: string;
+  ratedAt?: string;
+
   createdAt?: string;
 }
 
@@ -383,6 +388,11 @@ export interface RegenerateRemovedRequest {
   rejectedFoods?: string[];
 }
 
+export interface PlanRatingRequest {
+  rating: number;
+  feedback?: string;
+}
+
 // ── API Client ──
 
 export const api = {
@@ -470,6 +480,13 @@ export const api = {
       }),
     groceryList: (planId: string) =>
       request<GroceryList>(`/diet-plans/${planId}/grocery-list`),
+    delete: (planId: string) =>
+      request<void>(`/diet-plans/${planId}`, { method: "DELETE" }),
+    rate: (planId: string, body: PlanRatingRequest) =>
+      request<DietPlan>(`/diet-plans/${planId}/rating`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
   },
 
   foodPreferences: {

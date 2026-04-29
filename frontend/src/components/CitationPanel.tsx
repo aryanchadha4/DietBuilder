@@ -38,7 +38,7 @@ export function CitationPanel({ sources }: CitationPanelProps) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {source.sourceType && <Badge variant="secondary">{source.sourceType}</Badge>}
+                {source.sourceType && <Badge variant="default">{source.sourceType}</Badge>}
                 <Badge variant="info">
                   {Math.round((source.credibilityScore || 0) * 100)}%
                 </Badge>

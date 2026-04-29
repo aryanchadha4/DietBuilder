@@ -54,6 +54,22 @@ public class DietPlanController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/diet-plans/{planId}")
+    public ResponseEntity<Void> deletePlan(@PathVariable String planId) {
+        recommendationService.deletePlan(planId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/diet-plans/{planId}/rating")
+    public ResponseEntity<DietPlan> ratePlan(
+            @PathVariable String planId,
+            @RequestBody PlanRatingRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        return ResponseEntity.ok(recommendationService.ratePlan(planId, request.getRating(), request.getFeedback()));
+    }
+
     @DeleteMapping("/diet-plans/{planId}/meals")
     public DietPlan removeMeal(
             @PathVariable String planId,
@@ -88,5 +104,12 @@ public class DietPlanController {
         private String planId;
         private int totalItems;
         private List<String> foods;
+    }
+
+    @lombok.Data
+    public static class PlanRatingRequest {
+        /** 1-5 inclusive */
+        private int rating;
+        private String feedback;
     }
 }
