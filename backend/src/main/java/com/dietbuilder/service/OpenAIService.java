@@ -6,6 +6,7 @@ import com.dietbuilder.model.ExpertSource;
 import com.dietbuilder.model.UserProfile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,22 @@ public class OpenAIService {
     @Value("${openai.plan.evidence-summary-max-chars:400}")
     private int evidenceSummaryMaxChars;
 
+    private static final int MAX_CHUNK_RETRY_ATTEMPTS = 3;
+    private static final int MAX_PARSE_SNIPPET_CHARS = 400;
+    private static final String JSON_RETRY_CONSTRAINTS = """
+            PRIORITY RETRY INSTRUCTION:
+            Your previous response was invalid or incomplete JSON.
+            Return ONLY valid JSON matching the requested schema.
+            Do not include markdown fences, prose, comments, trailing commas, or partial objects.
+            If you are unsure about optional sections, omit them instead of returning malformed JSON.
+            Keep notes and planContent concise.
+            """;
+
+    @FunctionalInterface
+    private interface UserMessageFactory {
+        String build(ChunkContext ctx);
+    }
+
     /**
      * When generating a plan in parallel chunks, identifies one segment (day range) of the overall plan.
      */
@@ -55,6 +72,8 @@ public class OpenAIService {
             return dayEnd - dayStart + 1;
         }
     }
+
+    private record ParsedOpenAiEnvelope(String content, String finishReason) {}
 
     private static List<ChunkContext> buildChunkContexts(int totalPlanDays, int chunkDays) {
         if (chunkDays <= 0 || totalPlanDays <= 0) {
@@ -71,6 +90,21 @@ public class OpenAIService {
             chunkIndex++;
         }
         return out;
+    }
+
+    private static List<ChunkContext> buildChunkContextsForRange(int startDayInclusive, int endDayInclusive, int totalPlanDays) {
+        if (startDayInclusive > endDayInclusive) {
+            return List.of();
+        }
+        int segmentDays = endDayInclusive - startDayInclusive + 1;
+        if (segmentDays <= 1) {
+            return List.of(new ChunkContext(1, 1, startDayInclusive, endDayInclusive, totalPlanDays));
+        }
+        int splitPoint = startDayInclusive + (segmentDays / 2) - 1;
+        return List.of(
+                new ChunkContext(1, 2, startDayInclusive, splitPoint, totalPlanDays),
+                new ChunkContext(2, 2, splitPoint + 1, endDayInclusive, totalPlanDays)
+        );
     }
 
     private static String truncateEvidenceText(String text, int maxChars) {
@@ -201,8 +235,8 @@ public class OpenAIService {
     public DietPlan generateDietPlan(UserProfile profile, List<String> selectedCuisines,
                                      List<CulturalFoodGroup> culturalFoods,
                                      int numDays, List<String> dislikedFoods) {
-        return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
-                null, null, Map.of(), false, null);
+        UserMessageFactory userMessageFactory = ctx -> buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+        return generatePlanWithChunks(numDays, userMessageFactory, Map.of());
     }
 
     public DietPlan generateDietPlanWithSources(UserProfile profile, List<String> selectedCuisines,
@@ -223,34 +257,28 @@ public class OpenAIService {
         Map<String, ExpertSource> sourceMap = (retrievedSources == null ? List.<ExpertSource>of() : retrievedSources).stream()
                 .filter(s -> s.getId() != null)
                 .collect(Collectors.toMap(ExpertSource::getId, s -> s, (a, b) -> a, LinkedHashMap::new));
-        return generatePlanWithChunks(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods,
-                retrievedSources, conflicts, sourceMap, true, additionalHardConstraints);
+        UserMessageFactory userMessageFactory = ctx -> {
+            String userMessage = buildUserMessageWithSources(
+                    profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx
+            );
+            return withAdditionalHardConstraints(userMessage, additionalHardConstraints);
+        };
+        return generatePlanWithChunks(numDays, userMessageFactory, sourceMap);
     }
 
     /**
      * Splits large plans into parallel API calls when {@code openai.plan.chunk-days} is set.
      * Cross-chunk meal variety is not coordinated between requests (tradeoff for latency).
      */
-    private DietPlan generatePlanWithChunks(UserProfile profile, List<String> selectedCuisines,
-                                            List<CulturalFoodGroup> culturalFoods,
-                                            int numDays,
-                                            List<String> dislikedFoods,
-                                            List<ExpertSource> retrievedSources,
-                                            List<DietPlan.ConflictNote> conflicts,
-                                            Map<String, ExpertSource> sourceMap,
-                                            boolean useExpertEvidenceBlock,
-                                            String additionalHardConstraints) {
+    private DietPlan generatePlanWithChunks(int numDays,
+                                            UserMessageFactory userMessageFactory,
+                                            Map<String, ExpertSource> sourceMap) {
         if (numDays <= 0) {
             throw new IllegalArgumentException("numDays must be positive");
         }
         List<ChunkContext> contexts = buildChunkContexts(numDays, planChunkDays);
         if (contexts.size() == 1) {
-            ChunkContext ctx = contexts.get(0);
-            String userMessage = useExpertEvidenceBlock
-                    ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
-                    : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
-            userMessage = withAdditionalHardConstraints(userMessage, additionalHardConstraints);
-            return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
+            return generateChunkWithFallback(contexts.get(0), userMessageFactory, sourceMap);
         }
         log.info("openai.plan chunking: parallel_chunks={} chunk_days_setting={} total_days={} (cross-chunk variety is prompt-only)",
                 contexts.size(), planChunkDays, numDays);
@@ -259,13 +287,7 @@ public class OpenAIService {
         try {
             List<CompletableFuture<DietPlan>> futures = new ArrayList<>();
             for (ChunkContext ctx : contexts) {
-                futures.add(CompletableFuture.supplyAsync(() -> {
-                    String userMessage = useExpertEvidenceBlock
-                            ? buildUserMessageWithSources(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods, retrievedSources, conflicts, ctx)
-                            : buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx);
-                    userMessage = withAdditionalHardConstraints(userMessage, additionalHardConstraints);
-                    return callOpenAISingle(userMessage, sourceMap, ctx.segmentDays());
-                }, executor));
+                futures.add(CompletableFuture.supplyAsync(() -> generateChunkWithFallback(ctx, userMessageFactory, sourceMap), executor));
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             List<DietPlan> parts = futures.stream().map(CompletableFuture::join).toList();
@@ -281,9 +303,21 @@ public class OpenAIService {
                                          List<String> selectedCuisines,
                                          List<CulturalFoodGroup> culturalFoods,
                                          int numDays, List<String> dislikedFoods) {
+        UserMessageFactory userMessageFactory = ctx ->
+                buildAdaptedUserMessage(profile, previousPlan, trends, assessment, selectedCuisines, culturalFoods, dislikedFoods, ctx);
+        return generatePlanWithChunks(numDays, userMessageFactory, Map.of());
+    }
+
+    private String buildAdaptedUserMessage(UserProfile profile, DietPlan previousPlan,
+                                           OutcomeTrackingService.OutcomeTrends trends,
+                                           LongitudinalAdaptationService.AdaptationAssessment assessment,
+                                           List<String> selectedCuisines,
+                                           List<CulturalFoodGroup> culturalFoods,
+                                           List<String> dislikedFoods,
+                                           ChunkContext ctx) {
         StringBuilder sb = new StringBuilder();
         sb.append("Generate an ADAPTED diet plan based on the following context.\n\n");
-        sb.append(buildUserMessage(profile, selectedCuisines, culturalFoods, numDays, dislikedFoods));
+        sb.append(buildUserMessage(profile, selectedCuisines, culturalFoods, dislikedFoods, ctx));
 
         if (previousPlan != null) {
             sb.append("\n## PREVIOUS PLAN CONTEXT\n");
@@ -312,7 +346,8 @@ public class OpenAIService {
         }
 
         sb.append("\nAdapt the plan to address these issues while maintaining safety and nutritional adequacy.");
-        return callOpenAISingle(sb.toString(), Map.of(), numDays);
+        sb.append("\nKeep planContent concise. nutrientAudit is optional because the server may compute it.");
+        return sb.toString();
     }
 
     private String withAdditionalHardConstraints(String userMessage, String additionalHardConstraints) {
@@ -550,7 +585,8 @@ public class OpenAIService {
         sb.append("Set dailyCalories to this value for every day object.\n");
         sb.append("Provide complete JSON with 'days' array containing ").append(ctx.segmentDays()).append(" day objects, ");
         sb.append("each with meals (foods with fdcId and keyNutrients), dailyCalories, and macroBreakdown. ");
-        sb.append("Also include top-level nutrientAudit, evidenceTags, macroBreakdown, and notes.\n");
+        sb.append("Keep planContent and notes concise. Include evidenceTags when useful. ");
+        sb.append("nutrientAudit is optional because the server may compute it if omitted.\n");
         if (selectedCuisines != null && selectedCuisines.size() > 1) {
             sb.append("Cuisine compliance check before finalizing JSON: ");
             sb.append("for EACH meal/snack, verify all foods align to one selected cuisine only (no cross-cuisine mixing); ");
@@ -677,6 +713,7 @@ public class OpenAIService {
             throw new IllegalArgumentException("empty plan chunks");
         }
         if (parts.size() == 1) {
+            validatePlanStructure(parts.get(0), parts.get(0).getDays() == null ? totalPlanDays : Math.max(1, parts.get(0).getDays().size()), null);
             return parts.get(0);
         }
         List<DietPlan.DayPlan> allDays = new ArrayList<>();
@@ -723,6 +760,7 @@ public class OpenAIService {
         if (sourceMap != null && !sourceMap.isEmpty()) {
             merged.setSourceIds(new ArrayList<>(sourceMap.keySet()));
         }
+        validatePlanStructure(merged, totalPlanDays, null);
         return merged;
     }
 
@@ -740,6 +778,60 @@ public class OpenAIService {
                     usage.path("total_tokens").asInt());
         } catch (Exception e) {
             log.debug("Could not parse usage from OpenAI response", e);
+        }
+    }
+
+    private DietPlan generateChunkWithFallback(ChunkContext ctx,
+                                               UserMessageFactory userMessageFactory,
+                                               Map<String, ExpertSource> sourceMap) {
+        String userMessage = userMessageFactory.build(ctx);
+        try {
+            DietPlan plan = callOpenAISingleWithRetries(userMessage, sourceMap, ctx.segmentDays());
+            validatePlanStructure(plan, ctx.segmentDays(), ctx);
+            return plan;
+        } catch (RuntimeException e) {
+            if (ctx.segmentDays() <= 1) {
+                throw e;
+            }
+            List<ChunkContext> smaller = buildChunkContextsForRange(ctx.dayStart(), ctx.dayEnd(), ctx.totalPlanDays());
+            log.warn("openai.plan chunk_retry split range={}..{} into {} subchunks after failure: {}",
+                    ctx.dayStart(), ctx.dayEnd(), smaller.size(), e.getMessage());
+            List<DietPlan> parts = new ArrayList<>();
+            for (ChunkContext subCtx : smaller) {
+                parts.add(generateChunkWithFallback(subCtx, userMessageFactory, sourceMap));
+            }
+            DietPlan merged = mergeDietPlans(parts, ctx.segmentDays(), sourceMap);
+            validatePlanStructure(merged, ctx.segmentDays(), ctx);
+            return merged;
+        }
+    }
+
+    private DietPlan callOpenAISingleWithRetries(String userMessage, Map<String, ExpertSource> sourceMap, int segmentDays) {
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= MAX_CHUNK_RETRY_ATTEMPTS; attempt++) {
+            String attemptMessage = attempt > 1
+                    ? withAdditionalHardConstraints(userMessage, JSON_RETRY_CONSTRAINTS)
+                    : userMessage;
+            try {
+                return callOpenAISingle(attemptMessage, sourceMap, segmentDays);
+            } catch (RetryableOpenAiException | OpenAiParseException e) {
+                lastFailure = e;
+                if (attempt == MAX_CHUNK_RETRY_ATTEMPTS) {
+                    break;
+                }
+                log.warn("openai.plan retryable failure attempt={} segment_days={} reason={}",
+                        attempt, segmentDays, e.getMessage());
+                sleepBeforeRetry(attempt);
+            }
+        }
+        throw lastFailure == null ? new RuntimeException("Failed to generate diet plan after retries") : lastFailure;
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        try {
+            Thread.sleep(250L * attempt);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -773,11 +865,16 @@ public class OpenAIService {
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString();
             log.error("OpenAI API HTTP {}: {}", e.getStatusCode(), body);
+            if (e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError()) {
+                throw new RetryableOpenAiException("Transient OpenAI API error (" + e.getStatusCode() + ")", e);
+            }
             throw new RuntimeException("OpenAI API error (" + e.getStatusCode() + "): "
                     + (body != null && !body.isBlank() ? body : e.getMessage()), e);
+        } catch (OpenAiParseException e) {
+            throw e;
         } catch (Exception e) {
             log.error("OpenAI API call failed", e);
-            throw new RuntimeException("Failed to generate diet plan: " + e.getMessage(), e);
+            throw new RetryableOpenAiException("Failed to generate diet plan: " + e.getMessage(), e);
         }
     }
 
@@ -858,19 +955,16 @@ public class OpenAIService {
 
     private DietPlan parseResponse(String responseJson, Map<String, ExpertSource> sourceMap) {
         try {
-            JsonNode root = objectMapper.readTree(responseJson);
-            JsonNode choices = root.path("choices");
-            if (!choices.isArray() || choices.isEmpty()) {
-                String snippet = responseJson.length() > 800 ? responseJson.substring(0, 800) + "…" : responseJson;
-                log.error("OpenAI response missing choices: {}", snippet);
-                throw new RuntimeException("OpenAI response missing choices (invalid key, rate limit, or API error body).");
+            ParsedOpenAiEnvelope envelope = parseOpenAiEnvelope(responseJson);
+            String content = envelope.content();
+            JsonNode p;
+            try {
+                p = objectMapper.readTree(content);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse inner plan JSON finish_reason={} content_length={} snippet={}",
+                        envelope.finishReason(), content.length(), contentSnippet(content), e);
+                throw new OpenAiParseException("Failed to parse inner diet plan JSON", e);
             }
-            String content = choices.get(0).path("message").path("content").asText();
-            if (content == null || content.isBlank()) {
-                log.error("OpenAI returned empty message content");
-                throw new RuntimeException("OpenAI returned empty message content.");
-            }
-            JsonNode p = objectMapper.readTree(content);
 
             DietPlan dp = new DietPlan();
             dp.setPlanContent(p.path("planContent").asText());
@@ -917,6 +1011,10 @@ public class OpenAIService {
             if (!auditNode.isMissingNode()) {
                 DietPlan.NutrientAudit audit = new DietPlan.NutrientAudit();
                 audit.setAdequacyScore(auditNode.path("adequacyScore").asDouble());
+                audit.setKnownNutrientCount(auditNode.path("knownNutrientCount").asInt(0));
+                audit.setUnknownNutrientCount(auditNode.path("unknownNutrientCount").asInt(0));
+                audit.setDataCoveragePercent(auditNode.path("dataCoveragePercent").asDouble(0.0));
+                audit.setProteinGoalAdjusted(auditNode.path("proteinGoalAdjusted").asBoolean(false));
                 Map<String, DietPlan.NutrientStatus> nutrients = new LinkedHashMap<>();
                 JsonNode nutrNode = auditNode.path("nutrients");
                 if (nutrNode.isObject()) {
@@ -928,6 +1026,8 @@ public class OpenAIService {
                         status.setUl(ns.path("ul").asDouble());
                         status.setUnit(ns.path("unit").asText());
                         status.setStatus(ns.path("status").asText());
+                        status.setTargetType(ns.path("targetType").asText("RDA"));
+                        status.setKnown(ns.path("known").asBoolean(true));
                         nutrients.put(name, status);
                     });
                 }
@@ -973,9 +1073,103 @@ public class OpenAIService {
             }
 
             return dp;
+        } catch (OpenAiParseException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to parse OpenAI response", e);
-            throw new RuntimeException("Failed to parse diet plan response", e);
+            throw new OpenAiParseException("Failed to parse diet plan response", e);
+        }
+    }
+
+    private ParsedOpenAiEnvelope parseOpenAiEnvelope(String responseJson) throws JsonProcessingException {
+        JsonNode root = objectMapper.readTree(responseJson);
+        JsonNode choices = root.path("choices");
+        if (!choices.isArray() || choices.isEmpty()) {
+            String snippet = responseJson.length() > 800 ? responseJson.substring(0, 800) + "…" : responseJson;
+            log.error("OpenAI response missing choices: {}", snippet);
+            throw new OpenAiParseException("OpenAI response missing choices (invalid key, rate limit, or API error body).");
+        }
+        JsonNode firstChoice = choices.get(0);
+        String finishReason = firstChoice.path("finish_reason").asText(null);
+        String content = firstChoice.path("message").path("content").asText();
+        if (content == null || content.isBlank()) {
+            log.error("OpenAI returned empty message content finish_reason={}", finishReason);
+            throw new OpenAiParseException("OpenAI returned empty message content.");
+        }
+        return new ParsedOpenAiEnvelope(content, finishReason);
+    }
+
+    private String contentSnippet(String content) {
+        if (content == null) {
+            return "";
+        }
+        String normalized = content.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= MAX_PARSE_SNIPPET_CHARS) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_PARSE_SNIPPET_CHARS) + "…";
+    }
+
+    private void validatePlanStructure(DietPlan plan, int expectedDays, ChunkContext ctx) {
+        if (plan == null) {
+            throw new OpenAiParseException("Generated plan was null");
+        }
+        List<DietPlan.DayPlan> days = plan.getDays();
+        if (days == null || days.isEmpty()) {
+            if (expectedDays <= 1 && plan.getMeals() != null && !plan.getMeals().isEmpty()) {
+                return;
+            }
+            throw new OpenAiParseException("Generated plan missing days array");
+        }
+        if (days.size() != expectedDays) {
+            throw new OpenAiParseException("Expected " + expectedDays + " days but got " + days.size());
+        }
+        int expectedDayNumber = ctx != null ? ctx.dayStart() : days.get(0).getDayNumber();
+        for (DietPlan.DayPlan day : days) {
+            if (day.getDayNumber() != expectedDayNumber) {
+                throw new OpenAiParseException("Unexpected dayNumber " + day.getDayNumber() + "; expected " + expectedDayNumber);
+            }
+            validateRequiredMeals(day);
+            expectedDayNumber++;
+        }
+    }
+
+    private void validateRequiredMeals(DietPlan.DayPlan day) {
+        if (day == null || day.getMeals() == null || day.getMeals().isEmpty()) {
+            throw new OpenAiParseException("Day is missing meals");
+        }
+        boolean hasBreakfast = false;
+        boolean hasLunch = false;
+        boolean hasDinner = false;
+        boolean hasSnack = false;
+        for (DietPlan.Meal meal : day.getMeals()) {
+            if (meal == null || meal.getName() == null) {
+                continue;
+            }
+            String name = meal.getName().toLowerCase(Locale.ROOT);
+            if (name.contains("breakfast")) hasBreakfast = true;
+            if (name.contains("lunch")) hasLunch = true;
+            if (name.contains("dinner")) hasDinner = true;
+            if (name.contains("snack")) hasSnack = true;
+        }
+        if (!hasBreakfast || !hasLunch || !hasDinner || !hasSnack) {
+            throw new OpenAiParseException("Day " + day.getDayNumber() + " missing required meal structure");
+        }
+    }
+
+    private static final class RetryableOpenAiException extends RuntimeException {
+        private RetryableOpenAiException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    private static final class OpenAiParseException extends RuntimeException {
+        private OpenAiParseException(String message) {
+            super(message);
+        }
+
+        private OpenAiParseException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 

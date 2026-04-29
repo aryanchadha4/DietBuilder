@@ -9,6 +9,7 @@ const STATUS_STYLES: Record<string, string> = {
   LOW: "text-amber-600 dark:text-amber-400",
   DEFICIENT: "text-red-600 dark:text-red-400",
   EXCESSIVE: "text-red-600 dark:text-red-400",
+  UNKNOWN: "text-slate-600 dark:text-slate-300",
 };
 
 const STATUS_BG: Record<string, string> = {
@@ -16,6 +17,7 @@ const STATUS_BG: Record<string, string> = {
   LOW: "bg-amber-100 dark:bg-amber-900/30",
   DEFICIENT: "bg-red-100 dark:bg-red-900/30",
   EXCESSIVE: "bg-red-100 dark:bg-red-900/30",
+  UNKNOWN: "bg-slate-100 dark:bg-slate-700/40",
 };
 
 function formatNutrientName(key: string): string {
@@ -32,6 +34,7 @@ export function NutrientAuditPanel({ audit }: { audit?: NutrientAudit }) {
   const entries = Object.entries(audit.nutrients);
   const deficient = entries.filter(([, v]) => v.status === "DEFICIENT" || v.status === "LOW").length;
   const excessive = entries.filter(([, v]) => v.status === "EXCESSIVE").length;
+  const unknown = entries.filter(([, v]) => v.status === "UNKNOWN").length;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -57,6 +60,11 @@ export function NutrientAuditPanel({ audit }: { audit?: NutrientAudit }) {
               {excessive} excess
             </span>
           )}
+          {unknown > 0 && (
+            <span className="rounded-full bg-slate-100 dark:bg-slate-700/40 px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+              {unknown} unknown
+            </span>
+          )}
         </div>
         {expanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -67,6 +75,16 @@ export function NutrientAuditPanel({ audit }: { audit?: NutrientAudit }) {
 
       {expanded && (
         <div className="border-t border-border px-4 py-3">
+          <div className="mb-3 text-xs text-muted-foreground space-y-1">
+            {typeof audit.dataCoveragePercent === "number" && (
+              <p>
+                Data coverage: {audit.dataCoveragePercent.toFixed(0)}% ({audit.knownNutrientCount ?? 0} known, {audit.unknownNutrientCount ?? 0} unknown)
+              </p>
+            )}
+            {audit.proteinGoalAdjusted && (
+              <p>Protein is evaluated against a goal-adjusted target range.</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1">
             <div className="grid grid-cols-5 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
               <span>Nutrient</span>
@@ -88,6 +106,7 @@ export function NutrientAuditPanel({ audit }: { audit?: NutrientAudit }) {
                 </span>
                 <span className="text-right text-muted-foreground">
                   {status.rda > 0 ? `${status.rda.toFixed(1)}` : "—"}
+                  {status.targetType === "GOAL_RANGE" ? " (goal)" : ""}
                 </span>
                 <span className="text-right text-muted-foreground">
                   {status.ul > 0 ? `${status.ul.toFixed(1)}` : "—"}

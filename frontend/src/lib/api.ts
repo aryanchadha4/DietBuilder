@@ -107,12 +107,18 @@ export interface NutrientStatus {
   rda: number;
   ul: number;
   unit: string;
-  status: "DEFICIENT" | "LOW" | "ADEQUATE" | "EXCESSIVE";
+  status: "DEFICIENT" | "LOW" | "ADEQUATE" | "EXCESSIVE" | "UNKNOWN";
+  targetType?: "RDA" | "GOAL_RANGE";
+  known?: boolean;
 }
 
 export interface NutrientAudit {
   nutrients: Record<string, NutrientStatus>;
   adequacyScore: number;
+  knownNutrientCount?: number;
+  unknownNutrientCount?: number;
+  dataCoveragePercent?: number;
+  proteinGoalAdjusted?: boolean;
 }
 
 export type EvidenceLevel =

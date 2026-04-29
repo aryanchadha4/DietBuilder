@@ -36,15 +36,24 @@ openai:
     # Upper bound; effective tokens per request are min(this, a day-scaled cap) to avoid oversized completions for short plans
     max-tokens: ${OPENAI_MAX_TOKENS:16384}
   plan:
-    # 0 = one API call for the full plan. >0 splits into segments of at most this many days (parallel requests; cross-chunk variety is prompt-only)
-    chunk-days: ${OPENAI_PLAN_CHUNK_DAYS:0}
-    chunk-parallelism: ${OPENAI_PLAN_CHUNK_PARALLELISM:4}
+    # Default to smaller segments so multi-day plans do not fail from oversized/truncated JSON responses.
+    chunk-days: ${OPENAI_PLAN_CHUNK_DAYS:2}
+    chunk-parallelism: ${OPENAI_PLAN_CHUNK_PARALLELISM:3}
     # Truncate long expert source summaries in the user message to save prompt tokens
     evidence-summary-max-chars: ${OPENAI_PLAN_EVIDENCE_SUMMARY_MAX_CHARS:400}
 
 usda:
   api:
     key: ${USDA_API_KEY:}
+
+nutrition:
+  protein:
+    muscle-gain:
+      min-g-per-kg: ${NUTRITION_PROTEIN_MUSCLE_GAIN_MIN_G_PER_KG:1.6}
+      max-g-per-kg: ${NUTRITION_PROTEIN_MUSCLE_GAIN_MAX_G_PER_KG:2.2}
+    fat-loss:
+      min-g-per-kg: ${NUTRITION_PROTEIN_FAT_LOSS_MIN_G_PER_KG:1.8}
+      max-g-per-kg: ${NUTRITION_PROTEIN_FAT_LOSS_MAX_G_PER_KG:2.4}
 
 rag:
   embedding:

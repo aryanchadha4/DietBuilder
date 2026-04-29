@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +39,7 @@ public class DietRecommendationService {
     private final CulturalFoodGroupRepository culturalFoodGroupRepository;
     private final SafetyGuardrailService safetyGuardrailService;
     private final NutrientReferenceService nutrientReferenceService;
+    private final NutrientDatabaseService nutrientDatabaseService;
     private final RecommendationAuditService auditService;
     private final FoodPreferenceService foodPreferenceService;
     private final ExpertKnowledgeService expertKnowledgeService;
@@ -205,10 +207,8 @@ public class DietRecommendationService {
         }
 
         long tAuditStart = System.currentTimeMillis();
-        if (plan.getNutrientAudit() == null) {
-            log.info("Running server-side nutrient audit");
-            runNutrientAudit(plan, profile);
-        }
+        log.info("Running server-side nutrient audit");
+        runNutrientAudit(plan, profile);
         long auditMs = System.currentTimeMillis() - tAuditStart;
 
         long tPostCheckStart = System.currentTimeMillis();
@@ -270,26 +270,48 @@ public class DietRecommendationService {
 
     private void runNutrientAudit(DietPlan plan, UserProfile profile) {
         java.util.Map<String, Double> nutrientTotals = new java.util.LinkedHashMap<>();
+        Set<String> knownNutrients = new LinkedHashSet<>();
+        Set<String> tracked = nutrientReferenceService.getAllTrackedNutrients();
         if (plan.getMeals() != null) {
             for (DietPlan.Meal meal : plan.getMeals()) {
                 if (meal.getFoods() != null) {
                     for (DietPlan.MealFood food : meal.getFoods()) {
+                        Map<String, Double> normalizedFromMeal = new LinkedHashMap<>();
                         if (food.getKeyNutrients() != null) {
                             for (var e : food.getKeyNutrients().entrySet()) {
-                                nutrientTotals.merge(e.getKey(), e.getValue(), Double::sum);
+                                String normalized = normalizeAuditNutrientKey(e.getKey());
+                                if (normalized != null && tracked.contains(normalized)) {
+                                    normalizedFromMeal.merge(normalized, e.getValue(), Double::sum);
+                                }
                             }
+                        }
+                        Map<String, Double> enriched = enrichNutrientsFromFoodItem(food, tracked);
+                        for (Map.Entry<String, Double> e : enriched.entrySet()) {
+                            normalizedFromMeal.putIfAbsent(e.getKey(), e.getValue());
+                        }
+                        for (Map.Entry<String, Double> e : normalizedFromMeal.entrySet()) {
+                            nutrientTotals.merge(e.getKey(), e.getValue(), Double::sum);
+                            knownNutrients.add(e.getKey());
                         }
                     }
                 }
             }
         }
         String sex = profile.getGender() != null ? profile.getGender().toLowerCase() : "male";
+        NutrientReferenceService.ValidationContext context = new NutrientReferenceService.ValidationContext();
+        context.setAge(profile.getAge());
+        context.setSex(sex);
+        context.setWeightKg(profile.getWeightKg());
+        context.setGoals(profile.getGoals() == null ? List.of() : profile.getGoals());
+        context.setKnownNutrients(knownNutrients);
         java.util.Map<String, NutrientReferenceService.NutrientAdequacy> adequacyMap =
-                nutrientReferenceService.validateAdequacy(nutrientTotals, profile.getAge(), sex);
+                nutrientReferenceService.validateAdequacy(nutrientTotals, context);
         double score = nutrientReferenceService.computeAdequacyScore(adequacyMap);
+        double coverage = nutrientReferenceService.computeCoveragePercent(adequacyMap);
 
         DietPlan.NutrientAudit audit = new DietPlan.NutrientAudit();
         java.util.Map<String, DietPlan.NutrientStatus> auditNutrients = new java.util.LinkedHashMap<>();
+        int knownCount = 0;
         for (var e : adequacyMap.entrySet()) {
             DietPlan.NutrientStatus ns = new DietPlan.NutrientStatus();
             ns.setPlanned(e.getValue().getPlanned());
@@ -297,11 +319,85 @@ public class DietRecommendationService {
             ns.setUl(e.getValue().getUl());
             ns.setUnit(e.getValue().getUnit());
             ns.setStatus(e.getValue().getStatus());
+            ns.setTargetType(e.getValue().getTargetType());
+            ns.setKnown(e.getValue().isKnown());
             auditNutrients.put(e.getKey(), ns);
+            if (e.getValue().isKnown()) {
+                knownCount++;
+            }
         }
         audit.setNutrients(auditNutrients);
         audit.setAdequacyScore(score);
+        audit.setKnownNutrientCount(knownCount);
+        audit.setUnknownNutrientCount(Math.max(0, adequacyMap.size() - knownCount));
+        audit.setDataCoveragePercent(coverage);
+        audit.setProteinGoalAdjusted(profile.getGoals() != null &&
+                profile.getGoals().stream().anyMatch(g ->
+                        g != null && (g.toLowerCase().contains("muscle") ||
+                                g.toLowerCase().contains("strength") ||
+                                g.toLowerCase().contains("lose weight") ||
+                                g.toLowerCase().contains("fat loss"))));
         plan.setNutrientAudit(audit);
+    }
+
+    private Map<String, Double> enrichNutrientsFromFoodItem(DietPlan.MealFood food, Set<String> tracked) {
+        Map<String, Double> out = new LinkedHashMap<>();
+        if (food == null || food.getFdcId() == null || food.getFdcId().isBlank()) {
+            return out;
+        }
+        int fdcId;
+        try {
+            fdcId = Integer.parseInt(food.getFdcId().trim());
+        } catch (NumberFormatException nfe) {
+            return out;
+        }
+        double qty = food.getQuantityGrams() > 0 ? food.getQuantityGrams() : 100.0;
+        double scale = qty / 100.0;
+        nutrientDatabaseService.getOrFetchFoodByFdcId(fdcId).ifPresent(item -> {
+            if (item.getNutrients() == null) return;
+            for (Map.Entry<String, com.dietbuilder.model.FoodItem.NutrientValue> e : item.getNutrients().entrySet()) {
+                String normalized = normalizeAuditNutrientKey(e.getKey());
+                if (normalized == null || !tracked.contains(normalized) || e.getValue() == null) {
+                    continue;
+                }
+                out.merge(normalized, e.getValue().getAmount() * scale, Double::sum);
+            }
+        });
+        return out;
+    }
+
+    private String normalizeAuditNutrientKey(String rawKey) {
+        if (rawKey == null || rawKey.isBlank()) return null;
+        String key = rawKey.trim();
+        String compact = key.replaceAll("[\\s\\-]", "").toLowerCase(Locale.ROOT);
+        return switch (compact) {
+            case "energy", "calories", "kcal" -> "energy";
+            case "protein", "proteingrams" -> "protein";
+            case "fat", "fatgrams", "totallipid" -> "fat";
+            case "carbs", "carbohydrate", "carbohydrates", "carbsgrams", "carbohydratebydifference" -> "carbohydrate";
+            case "fiber", "dietaryfiber", "fibergrams" -> "fiber";
+            case "calcium" -> "calcium";
+            case "iron" -> "iron";
+            case "magnesium" -> "magnesium";
+            case "zinc" -> "zinc";
+            case "vitamina" -> "vitamin_a";
+            case "vitaminc" -> "vitamin_c";
+            case "vitamind" -> "vitamin_d";
+            case "vitamine" -> "vitamin_e";
+            case "vitamink" -> "vitamin_k";
+            case "vitaminb6" -> "vitamin_b6";
+            case "vitaminb12" -> "vitamin_b12";
+            case "folate" -> "folate";
+            case "potassium" -> "potassium";
+            case "sodium" -> "sodium";
+            case "niacin" -> "niacin";
+            case "phosphorus" -> "phosphorus";
+            case "selenium" -> "selenium";
+            case "copper" -> "copper";
+            case "manganese" -> "manganese";
+            case "chromium" -> "chromium";
+            default -> key.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("_+", "_");
+        };
     }
 
     public DietPlan regeneratePlan(String profileId,

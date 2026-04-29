@@ -104,6 +104,10 @@ public class DietPlan {
     public static class NutrientAudit {
         private Map<String, NutrientStatus> nutrients;
         private double adequacyScore;
+        private int knownNutrientCount;
+        private int unknownNutrientCount;
+        private double dataCoveragePercent;
+        private boolean proteinGoalAdjusted;
     }
 
     @Data
@@ -113,6 +117,10 @@ public class DietPlan {
         private double ul;
         private String unit;
         private String status;
+        /** "RDA" (default) or "GOAL_RANGE" for goal-aware targets like protein. */
+        private String targetType;
+        /** True when this nutrient was computed with available data. */
+        private boolean known = true;
     }
 
     @Data
